@@ -1,0 +1,12 @@
+{
+    "name": "Marauder Example",
+    "version": "0.13.0",
+    "builds": [
+      {
+        "chipFamily": "ESP32",
+        "parts": [
+          { "path": "https://raw.githubusercontent.com/justcallmekoko/ESP32Marauder/master/Binaries/esp32_marauder_v0_13_0.bin", "offset": 0x10000 }
+        ]
+      }
+    ]
+  }

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatoy - AI Firmware for CYD</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Three.js for 3D Landing Page -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+</head>
+<body>
+    <div id="toast-container"></div>
+
+    <!-- LANDING PAGE -->
+    <section id="landing-page" class="full-screen-section">
+        <div id="canvas-container"></div>
+        <div class="landing-overlay">
+            <div class="landing-content-wrapper">
+                <div class="landing-text">
+                    <h1 class="hero-title">REVOLUTIONIZE YOUR<br>CODE & FIRMWARE</h1>
+                    <p class="hero-desc">
+                        Seamless Development, Flawless Deployment. Explore tools for systems, robust programming, and over-the-air updates.
+                    </p>
+                    <button id="btn-enter-app" class="btn hero-btn">
+                        GET STARTED
+                    </button>
+                </div>
+                <div class="landing-subtext">
+                    <h3>Unlock the Future.</h3>
+                    <p>Innovate with our integrated platform for firmware flashing, and cloud-based management.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- APP PAGE -->
+    <div id="app-page" class="container hidden-section">
+        <header>
+            <div class="logo">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#00f2ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M2 17L12 22L22 17" stroke="#00f2ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M2 12L12 17L22 12" stroke="#00f2ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <h1>Chatoy Studio</h1>
+            </div>
+            <div class="header-controls">
+                <button id="btn-settings" class="icon-btn" title="Settings">⚙️</button>
+            </div>
+            <p class="subtitle">Firmware Manager & Serial Interface</p>
+        </header>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="modal hidden">
+            <div class="modal-content card glass-effect">
+                <div class="modal-header">
+                    <h2>Configuration</h2>
+                    <button id="btn-close-settings" class="icon-btn">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="control-group">
+                        <label for="setting-baud">Default Baud Rate</label>
+                        <select id="setting-baud" class="styled-select">
+                            <option value="9600">9600</option>
+                            <option value="115200">115200</option>
+                            <option value="921600">921600</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="setting-max-lines">Max Log Lines</label>
+                        <input type="number" id="setting-max-lines" class="styled-input" value="1000">
+                    </div>
+                    <div class="control-group">
+                        <label class="checkbox-label" style="justify-content: flex-start;">
+                            <input type="checkbox" id="setting-remember"> Remember Settings
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-save-settings" class="btn primary-btn">Save & Close</button>
+                </div>
+            </div>
+        </div>
+
+        <main>
+            <!-- Card 1: Flasher -->
+            <div class="card glass-effect">
+                <div class="card-header">
+                    <h2>
+                        <span>⚡</span> Firmware Flasher
+                    </h2>
+                </div>
+
+                <div class="control-group">
+                    <label for="product-select">Select Firmware Image</label>
+                    <select id="product-select" class="styled-select">
+                        <option value="" disabled selected>Loading manifest...</option>
+                    </select>
+                </div>
+
+                <div class="control-group" id="custom-file-area" style="display: none;">
+                    <label for="file-upload" class="file-drop-zone">
+                        <span class="icon">📦</span>
+                        <span class="text">Upload Firmware</span>
+                        <span class="sub-text">Click or Drop .bin file here</span>
+                        <input type="file" id="file-upload" accept=".bin" hidden>
+                    </label>
+                    <div id="file-info" class="file-info hidden"></div>
+                </div>
+
+                <div class="actions">
+                    <!-- ESP Web Tools Button -->
+                    <esp-web-install-button id="install-button" class="hidden"></esp-web-install-button>
+                </div>
+            </div>
+
+            <!-- Card 2: Serial Monitor -->
+            <div class="card glass-effect">
+                <div class="card-header">
+                    <h2>
+                        <span>📟</span> Serial Monitor
+                    </h2>
+                    <div class="status-indicator" id="serial-status">Disconnected</div>
+                </div>
+
+                <div class="console-wrapper">
+                    <div class="terminal-toolbar">
+                        <div class="toolbar-group">
+                            <button id="btn-serial-connect" class="btn secondary-btn">Connect</button>
+                            <button id="btn-reset" class="btn secondary-btn" disabled title="Reset Device (DTR/RTS)">
+                                🔄
+                            </button>
+                            <select id="baud-rate" class="styled-select" style="width: 120px;">
+                                <option value="9600">9600</option>
+                                <option value="115200" selected>115200</option>
+                                <option value="921600">921600</option>
+                            </select>
+                        </div>
+                        <div class="toolbar-group right">
+                            <label class="checkbox-label" title="Auto Scroll">
+                                <input type="checkbox" id="chk-autoscroll" checked> <span>⬇️</span>
+                            </label>
+                            <label class="checkbox-label" title="Show Timestamp">
+                                <input type="checkbox" id="chk-timestamp"> <span>🕒</span>
+                            </label>
+                            <button id="btn-download-logs" class="btn icon-btn" title="Download Logs">💾</button>
+                            <button id="btn-clear-logs" class="btn icon-btn" title="Clear">🗑️</button>
+                        </div>
+                    </div>
+
+                    <div id="console" class="console-output">
+                        <div class="log-line system">Welcome to ESP32 Web Monitor.</div>
+                        <div class="log-line system">Select Baud Rate and click Connect.</div>
+                    </div>
+
+                    <div class="console-input-area">
+                        <input type="text" id="serial-input" class="styled-input" placeholder="Type command (e.g. help)..." disabled>
+                        <button id="btn-send" class="btn primary-btn" style="width: auto;" disabled>Send</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Built with ❤️ by Jules • <a href="#">v2.0.0</a></p>
+        </footer>
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
