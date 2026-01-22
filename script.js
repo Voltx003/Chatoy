@@ -2,7 +2,7 @@
 // import { InstallButton } from 'https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module';
 
 // ==========================================
-// 3D BACKGROUND LOGIC (Three.js)
+// 3D BACKGROUND LOGIC (Three.js) - FROM UI REFACTOR
 // ==========================================
 
 let scene, camera, renderer, cube, cage, particles;
@@ -209,7 +209,7 @@ function animate() {
 const landingPage = document.getElementById('landing-page');
 const appPage = document.getElementById('app-page');
 const btnEnterApp = document.getElementById('btn-enter-app');
-const btnBackHome = document.getElementById('btn-back-home');
+const btnBackHome = document.getElementById('btn-back-home'); // From UI Refactor
 
 // DOM Elements
 const productSelect = document.getElementById('product-select');
@@ -245,14 +245,21 @@ let manifest = null;
 let currentFirmware = null;
 let port = null;
 let reader = null;
-let writer = null;
+// writer removed as per Logic Fixes
 let readableStreamClosed = null;
 let textEncoder = new TextEncoder();
 let buffer = '';
 let maxLogLines = 1000;
 
+let isConnecting = false; // From Logic Fixes
+
+// Memory management for custom uploads
+let lastCustomFileUrl = null; // From Logic Fixes
+let lastManifestUrl = null; // From Logic Fixes
+
 // --- UI HELPERS ---
 function showToast(message, type = 'info') {
+    // UI Refactor uses Phosphor icons
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
@@ -435,6 +442,7 @@ function updateInstallButtonState() {
 }
 
 function handleFileUpload(e) {
+    // Logic Fixes: Memory management and Sanitization
     const file = e.target.files[0];
     if (!file) return;
 
@@ -448,13 +456,37 @@ function handleFileUpload(e) {
     fileInfo.classList.remove('hidden');
     showToast(`Loaded ${file.name}`, 'success');
 
-    const fileUrl = URL.createObjectURL(file);
+    // Update Dropdown Name (remove extension and sanitize)
+    let baseName = file.name.replace(/\.[^/.]+$/, "");
+    // Basic sanitization to prevent weird characters in UI
+    baseName = baseName.replace(/[^a-zA-Z0-9 _-]/g, '').trim();
+    if (!baseName) baseName = "Custom Firmware";
+
+    const customOption = productSelect.querySelector('option[value="custom"]');
+    if (customOption) {
+        customOption.textContent = baseName;
+    }
+
+    // Clean up previous blobs
+    if (lastCustomFileUrl) URL.revokeObjectURL(lastCustomFileUrl);
+    if (lastManifestUrl) URL.revokeObjectURL(lastManifestUrl);
+
+    try {
+        lastCustomFileUrl = URL.createObjectURL(file);
+    } catch (err) {
+        log('Error creating object URL: ' + err.message, 'error');
+        return;
+    }
+
     const generatedManifest = {
         name: "Custom Firmware",
         version: "1.0.0",
         builds: [
-            { chipFamily: "ESP32", parts: [{ path: fileUrl, offset: 0x10000 }] },
-            { chipFamily: "ESP8266", parts: [{ path: fileUrl, offset: 0x0 }] }
+            { chipFamily: "ESP32", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
+            { chipFamily: "ESP32-S2", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
+            { chipFamily: "ESP32-S3", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
+            { chipFamily: "ESP32-C3", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
+            { chipFamily: "ESP8266", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] }
         ]
     };
 
@@ -487,7 +519,7 @@ async function connectSerial() {
         log(`Connected at ${baudRate} baud.`, 'success');
         showToast('Connected to Serial Port', 'success');
 
-        updateSerialStatus(true);
+        updateSerialStatus(true); // UI Refactor helper
 
         serialInput.disabled = false;
         btnSend.disabled = false;
@@ -510,10 +542,9 @@ async function disconnectSerial() {
                 await readableStreamClosed.catch(() => {});
                 reader = null;
             }
-            if (writer) {
-                writer.releaseLock();
-                writer = null;
-            }
+
+            // Writer release is handled locally in sendData in Logic Fixes
+
             await port.close();
 
             if (buffer.length > 0) {
@@ -529,7 +560,7 @@ async function disconnectSerial() {
         log('Disconnected.', 'system');
         showToast('Disconnected', 'info');
 
-        updateSerialStatus(false);
+        updateSerialStatus(false); // UI Refactor helper
 
         serialInput.disabled = true;
         btnSend.disabled = true;
@@ -661,6 +692,7 @@ function setupEventListeners() {
         setTimeout(() => {
             appPage.classList.remove('hidden-section');
             appPage.classList.add('active');
+            // Logic Fix removed stopThreeJS() to support persistent background
         }, 800);
     });
 
