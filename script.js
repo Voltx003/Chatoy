@@ -141,7 +141,7 @@ function createTechCube() {
 
 function createParticles() {
     const particlesGeo = new THREE.BufferGeometry();
-    const count = 800; // Reduced count for performance
+    const count = 800;
     const posArray = new Float32Array(count * 3);
 
     for(let i=0; i<count * 3; i++) {
@@ -204,6 +204,12 @@ function animate() {
 // ==========================================
 // APPLICATION LOGIC
 // ==========================================
+
+// Views
+const landingPage = document.getElementById('landing-page');
+const appPage = document.getElementById('app-page');
+const btnEnterApp = document.getElementById('btn-enter-app');
+const btnBackHome = document.getElementById('btn-back-home');
 
 // DOM Elements
 const productSelect = document.getElementById('product-select');
@@ -647,6 +653,28 @@ function setupEventListeners() {
     modalSettings.addEventListener('click', (e) => {
         if (e.target === modalSettings) modalSettings.classList.add('hidden');
     });
+
+    // Navigation (Landing -> App)
+    btnEnterApp.addEventListener('click', () => {
+        landingPage.classList.add('slide-up');
+
+        setTimeout(() => {
+            appPage.classList.remove('hidden-section');
+            appPage.classList.add('active');
+        }, 800);
+    });
+
+    // Navigation (App -> Home) (Optional, if we want a back button)
+    if (btnBackHome) {
+        btnBackHome.addEventListener('click', () => {
+            appPage.classList.remove('active');
+            appPage.classList.add('hidden-section');
+
+            setTimeout(() => {
+                landingPage.classList.remove('slide-up');
+            }, 300);
+        });
+    }
 }
 
 // Start
