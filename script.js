@@ -47,48 +47,6 @@ function initThreeJS() {
     animate();
 }
 
-function stopThreeJS() {
-    if (animationId) {
-        cancelAnimationFrame(animationId);
-        animationId = null;
-    }
-
-    if (scene) {
-        scene.traverse((object) => {
-            if (object.geometry) object.geometry.dispose();
-            if (object.material) {
-                if (Array.isArray(object.material)) {
-                    object.material.forEach(material => {
-                        if (material.map) material.map.dispose();
-                        material.dispose();
-                    });
-                } else {
-                    if (object.material.map) object.material.map.dispose();
-                    if (object.material.emissiveMap && object.material.emissiveMap !== object.material.map) {
-                        object.material.emissiveMap.dispose();
-                    }
-                    object.material.dispose();
-                }
-            }
-        });
-        scene = null;
-    }
-
-    if (renderer) {
-        renderer.dispose();
-        const canvas = renderer.domElement;
-        if (canvas && canvas.parentElement) {
-            canvas.parentElement.removeChild(canvas);
-        }
-        renderer = null;
-    }
-
-    camera = null;
-    cube = null;
-    cage = null;
-    particles = null;
-}
-
 function createCircuitTexture() {
     const size = 1024;
     const canvas = document.createElement('canvas');
@@ -183,7 +141,7 @@ function createTechCube() {
 
 function createParticles() {
     const particlesGeo = new THREE.BufferGeometry();
-    const count = 800; // Reduced count for performance
+    const count = 800;
     const posArray = new Float32Array(count * 3);
 
     for(let i=0; i<count * 3; i++) {
@@ -247,6 +205,12 @@ function animate() {
 // APPLICATION LOGIC
 // ==========================================
 
+// Views
+const landingPage = document.getElementById('landing-page');
+const appPage = document.getElementById('app-page');
+const btnEnterApp = document.getElementById('btn-enter-app');
+const btnBackHome = document.getElementById('btn-back-home');
+
 // DOM Elements
 const productSelect = document.getElementById('product-select');
 const customFileArea = document.getElementById('custom-file-area');
@@ -281,16 +245,11 @@ let manifest = null;
 let currentFirmware = null;
 let port = null;
 let reader = null;
+let writer = null;
 let readableStreamClosed = null;
 let textEncoder = new TextEncoder();
 let buffer = '';
 let maxLogLines = 1000;
-
-let isConnecting = false;
-
-// Memory management for custom uploads
-let lastCustomFileUrl = null;
-let lastManifestUrl = null;
 
 // --- UI HELPERS ---
 function showToast(message, type = 'info') {
@@ -385,20 +344,16 @@ async function init() {
 function loadSettings() {
     const saved = localStorage.getItem('esp_tools_settings');
     if (saved) {
-        try {
-            const config = JSON.parse(saved);
-            if (config.baud && !isNaN(config.baud)) {
-                baudRateSelect.value = config.baud;
-                settingBaud.value = config.baud;
-            }
-            if (config.maxLines && !isNaN(config.maxLines)) {
-                maxLogLines = Math.max(10, Math.min(10000, parseInt(config.maxLines)));
-                settingMaxLines.value = maxLogLines;
-            }
-            if (config.remember !== undefined) settingRemember.checked = !!config.remember;
-        } catch (e) {
-            console.error("Error loading settings:", e);
+        const config = JSON.parse(saved);
+        if (config.baud) {
+            baudRateSelect.value = config.baud;
+            settingBaud.value = config.baud;
         }
+        if (config.maxLines) {
+            maxLogLines = parseInt(config.maxLines);
+            settingMaxLines.value = maxLogLines;
+        }
+        if (config.remember !== undefined) settingRemember.checked = config.remember;
     }
 }
 
@@ -466,11 +421,6 @@ function handleSelection() {
 }
 
 function setupInstallButton(manifestPath) {
-    if (!customElements.get('esp-web-install-button')) {
-        showToast('Flasher component not loaded (Check Internet)', 'error');
-        log('Flasher component missing. Cannot load firmware manifest.', 'error');
-        return;
-    }
     const fullPath = new URL(manifestPath, window.location.href).href;
     installButton.manifest = fullPath;
     log(`Selected firmware: ${currentFirmware.name}`, 'system');
@@ -498,50 +448,24 @@ function handleFileUpload(e) {
     fileInfo.classList.remove('hidden');
     showToast(`Loaded ${file.name}`, 'success');
 
-    // Update Dropdown Name (remove extension and sanitize)
-    let baseName = file.name.replace(/\.[^/.]+$/, "");
-    // Basic sanitization to prevent weird characters in UI
-    baseName = baseName.replace(/[^a-zA-Z0-9 _-]/g, '').trim();
-    if (!baseName) baseName = "Custom Firmware";
-
-    const customOption = productSelect.querySelector('option[value="custom"]');
-    if (customOption) {
-        customOption.textContent = baseName;
-    }
-
-    // Clean up previous blobs
-    if (lastCustomFileUrl) URL.revokeObjectURL(lastCustomFileUrl);
-    if (lastManifestUrl) URL.revokeObjectURL(lastManifestUrl);
-
-    try {
-        lastCustomFileUrl = URL.createObjectURL(file);
-    } catch (err) {
-        log('Error creating object URL: ' + err.message, 'error');
-        return;
-    }
-
+    const fileUrl = URL.createObjectURL(file);
     const generatedManifest = {
         name: "Custom Firmware",
         version: "1.0.0",
         builds: [
-            { chipFamily: "ESP32", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP32-S2", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP32-S3", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP32-C3", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP8266", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] }
+            { chipFamily: "ESP32", parts: [{ path: fileUrl, offset: 0x10000 }] },
+            { chipFamily: "ESP8266", parts: [{ path: fileUrl, offset: 0x0 }] }
         ]
     };
 
     const manifestBlob = new Blob([JSON.stringify(generatedManifest)], {type: "application/json"});
-    lastManifestUrl = URL.createObjectURL(manifestBlob);
-    installButton.manifest = lastManifestUrl;
+    installButton.manifest = URL.createObjectURL(manifestBlob);
     updateInstallButtonState();
 }
 
 // --- SERIAL MONITOR LOGIC ---
 
 async function toggleConnect() {
-    if (isConnecting) return;
     if (port) {
         await disconnectSerial();
     } else {
@@ -555,13 +479,10 @@ async function connectSerial() {
         return;
     }
 
-    isConnecting = true;
     try {
-        const selectedPort = await navigator.serial.requestPort();
+        port = await navigator.serial.requestPort();
         const baudRate = parseInt(baudRateSelect.value);
-        await selectedPort.open({ baudRate });
-
-        port = selectedPort; // Assign only after successful open
+        await port.open({ baudRate });
 
         log(`Connected at ${baudRate} baud.`, 'success');
         showToast('Connected to Serial Port', 'success');
@@ -578,9 +499,6 @@ async function connectSerial() {
     } catch (err) {
         log('Error connecting: ' + err.message, 'error');
         showToast('Connection failed', 'error');
-        port = null;
-    } finally {
-        isConnecting = false;
     }
 }
 
@@ -588,11 +506,14 @@ async function disconnectSerial() {
     if (port) {
         try {
             if (reader) {
-                await reader.cancel().catch(e => console.warn('Reader cancel failed:', e));
+                await reader.cancel();
                 await readableStreamClosed.catch(() => {});
                 reader = null;
             }
-
+            if (writer) {
+                writer.releaseLock();
+                writer = null;
+            }
             await port.close();
 
             if (buffer.length > 0) {
@@ -601,8 +522,7 @@ async function disconnectSerial() {
             }
 
         } catch (e) {
-            console.error('Disconnect error:', e);
-            log('Error disconnecting: ' + e.message, 'error');
+            console.error(e);
         }
 
         port = null;
@@ -655,13 +575,6 @@ async function readLoop() {
 
 function processIncomingData(chunk) {
     buffer += chunk;
-
-    // Safety: Prevent buffer from growing indefinitely if no newline is received
-    if (buffer.length > 50000) {
-        log(buffer + ' [Buffer Limit Reached - Flushed]', 'in');
-        buffer = '';
-    }
-
     const lines = buffer.split('\n');
     buffer = lines.pop();
 
@@ -740,6 +653,28 @@ function setupEventListeners() {
     modalSettings.addEventListener('click', (e) => {
         if (e.target === modalSettings) modalSettings.classList.add('hidden');
     });
+
+    // Navigation (Landing -> App)
+    btnEnterApp.addEventListener('click', () => {
+        landingPage.classList.add('slide-up');
+
+        setTimeout(() => {
+            appPage.classList.remove('hidden-section');
+            appPage.classList.add('active');
+        }, 800);
+    });
+
+    // Navigation (App -> Home) (Optional, if we want a back button)
+    if (btnBackHome) {
+        btnBackHome.addEventListener('click', () => {
+            appPage.classList.remove('active');
+            appPage.classList.add('hidden-section');
+
+            setTimeout(() => {
+                landingPage.classList.remove('slide-up');
+            }, 300);
+        });
+    }
 }
 
 // Start
