@@ -3,51 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chatoy - AI Firmware for CYD</title>
+    <title>Chatoy Studio - Firmware Tool</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <!-- Three.js for 3D Landing Page -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Three.js for 3D Background -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
 </head>
 <body>
+    <!-- BACKGROUND -->
+    <div id="canvas-container"></div>
+    <div class="bg-overlay"></div>
+
     <div id="toast-container"></div>
 
-    <!-- LANDING PAGE -->
-    <section id="landing-page" class="full-screen-section">
-        <div id="canvas-container"></div>
-        <div class="landing-overlay">
-            <div class="landing-content-wrapper">
-                <div class="landing-text">
-                    <h1 class="hero-title">REVOLUTIONIZE YOUR<br>CODE & FIRMWARE</h1>
-                    <p class="hero-desc">
-                        Seamless Development, Flawless Deployment. Explore tools for systems, robust programming, and over-the-air updates.
-                    </p>
-                    <button id="btn-enter-app" class="btn hero-btn">
-                        GET STARTED
-                    </button>
-                </div>
-                <div class="landing-subtext">
-                    <h3>Unlock the Future.</h3>
-                    <p>Innovate with our integrated platform for firmware flashing, and cloud-based management.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- APP PAGE -->
-    <div id="app-page" class="container hidden-section">
+    <!-- MAIN APP -->
+    <div id="app-page" class="container">
         <header>
             <div class="logo">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#00f2ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M2 17L12 22L22 17" stroke="#00f2ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M2 12L12 17L22 12" stroke="#00f2ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
+                <i class="ph ph-planet" style="color: var(--primary-color); font-size: 2rem;"></i>
                 <h1>Chatoy Studio</h1>
             </div>
             <div class="header-controls">
-                <button id="btn-settings" class="icon-btn" title="Settings">⚙️</button>
+                <button id="btn-settings" class="icon-btn" title="Settings">
+                    <i class="ph ph-gear"></i>
+                </button>
             </div>
             <p class="subtitle">Firmware Manager & Serial Interface</p>
         </header>
@@ -56,8 +38,8 @@
         <div id="settings-modal" class="modal hidden">
             <div class="modal-content card glass-effect">
                 <div class="modal-header">
-                    <h2>Configuration</h2>
-                    <button id="btn-close-settings" class="icon-btn">✕</button>
+                    <h2><i class="ph ph-sliders"></i> Configuration</h2>
+                    <button id="btn-close-settings" class="icon-btn"><i class="ph ph-x"></i></button>
                 </div>
                 <div class="modal-body">
                     <div class="control-group">
@@ -86,23 +68,26 @@
 
         <main>
             <!-- Card 1: Flasher -->
-            <div class="card glass-effect">
+            <div class="card glass-effect flasher-card">
                 <div class="card-header">
                     <h2>
-                        <span>⚡</span> Firmware Flasher
+                        <i class="ph ph-lightning"></i> Firmware Flasher
                     </h2>
                 </div>
 
                 <div class="control-group">
                     <label for="product-select">Select Firmware Image</label>
-                    <select id="product-select" class="styled-select">
-                        <option value="" disabled selected>Loading manifest...</option>
-                    </select>
+                    <div class="select-wrapper">
+                        <select id="product-select" class="styled-select">
+                            <option value="" disabled selected>Loading manifest...</option>
+                        </select>
+                        <i class="ph ph-caret-down select-icon"></i>
+                    </div>
                 </div>
 
                 <div class="control-group" id="custom-file-area" style="display: none;">
                     <label for="file-upload" class="file-drop-zone">
-                        <span class="icon">📦</span>
+                        <i class="ph ph-upload-simple icon"></i>
                         <span class="text">Upload Firmware</span>
                         <span class="sub-text">Click or Drop .bin file here</span>
                         <input type="file" id="file-upload" accept=".bin" hidden>
@@ -117,54 +102,68 @@
             </div>
 
             <!-- Card 2: Serial Monitor -->
-            <div class="card glass-effect">
+            <div class="card glass-effect serial-card">
                 <div class="card-header">
                     <h2>
-                        <span>📟</span> Serial Monitor
+                        <i class="ph ph-terminal-window"></i> Serial Monitor
                     </h2>
-                    <div class="status-indicator" id="serial-status">Disconnected</div>
+                    <div class="status-indicator" id="serial-status">
+                        <span class="status-dot"></span> Disconnected
+                    </div>
                 </div>
 
                 <div class="console-wrapper">
                     <div class="terminal-toolbar">
                         <div class="toolbar-group">
-                            <button id="btn-serial-connect" class="btn secondary-btn">Connect</button>
-                            <button id="btn-reset" class="btn secondary-btn" disabled title="Reset Device (DTR/RTS)">
-                                🔄
+                            <button id="btn-serial-connect" class="btn secondary-btn">
+                                <i class="ph ph-plug"></i> Connect
                             </button>
-                            <select id="baud-rate" class="styled-select" style="width: 120px;">
-                                <option value="9600">9600</option>
-                                <option value="115200" selected>115200</option>
-                                <option value="921600">921600</option>
-                            </select>
+                            <button id="btn-reset" class="btn secondary-btn" disabled title="Reset Device (DTR/RTS)">
+                                <i class="ph ph-arrows-clockwise"></i>
+                            </button>
+                            <div class="select-wrapper compact">
+                                <select id="baud-rate" class="styled-select">
+                                    <option value="9600">9600</option>
+                                    <option value="115200" selected>115200</option>
+                                    <option value="921600">921600</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="toolbar-group right">
                             <label class="checkbox-label" title="Auto Scroll">
-                                <input type="checkbox" id="chk-autoscroll" checked> <span>⬇️</span>
+                                <input type="checkbox" id="chk-autoscroll" checked>
+                                <i class="ph ph-arrow-fat-line-down"></i>
                             </label>
                             <label class="checkbox-label" title="Show Timestamp">
-                                <input type="checkbox" id="chk-timestamp"> <span>🕒</span>
+                                <input type="checkbox" id="chk-timestamp">
+                                <i class="ph ph-clock"></i>
                             </label>
-                            <button id="btn-download-logs" class="btn icon-btn" title="Download Logs">💾</button>
-                            <button id="btn-clear-logs" class="btn icon-btn" title="Clear">🗑️</button>
+                            <button id="btn-download-logs" class="btn icon-btn" title="Download Logs">
+                                <i class="ph ph-floppy-disk"></i>
+                            </button>
+                            <button id="btn-clear-logs" class="btn icon-btn" title="Clear">
+                                <i class="ph ph-trash"></i>
+                            </button>
                         </div>
                     </div>
 
                     <div id="console" class="console-output">
-                        <div class="log-line system">Welcome to ESP32 Web Monitor.</div>
+                        <div class="log-line system">Welcome to Chatoy Studio.</div>
                         <div class="log-line system">Select Baud Rate and click Connect.</div>
                     </div>
 
                     <div class="console-input-area">
-                        <input type="text" id="serial-input" class="styled-input" placeholder="Type command (e.g. help)..." disabled>
-                        <button id="btn-send" class="btn primary-btn" style="width: auto;" disabled>Send</button>
+                        <input type="text" id="serial-input" class="styled-input" placeholder="Type command..." disabled>
+                        <button id="btn-send" class="btn primary-btn" disabled>
+                            <i class="ph ph-paper-plane-right"></i>
+                        </button>
                     </div>
                 </div>
             </div>
         </main>
 
         <footer>
-            <p>Built with ❤️ by Jules • <a href="#">v2.0.0</a></p>
+            <p>Built for exploration.</p>
         </footer>
     </div>
 

@@ -2,11 +2,10 @@
 // import { InstallButton } from 'https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module';
 
 // ==========================================
-// 3D LANDING PAGE LOGIC (Three.js)
+// 3D BACKGROUND LOGIC (Three.js)
 // ==========================================
 
 let scene, camera, renderer, cube, cage, particles;
-let animationId;
 const canvasContainer = document.getElementById('canvas-container');
 
 function initThreeJS() {
@@ -14,7 +13,6 @@ function initThreeJS() {
 
     // 1. Scene & Camera
     scene = new THREE.Scene();
-    // Add some fog for depth
     scene.fog = new THREE.FogExp2(0x0b0f19, 0.002);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -49,13 +47,6 @@ function initThreeJS() {
     animate();
 }
 
-function stopThreeJS() {
-    if (animationId) {
-        cancelAnimationFrame(animationId);
-        animationId = null;
-    }
-}
-
 function createCircuitTexture() {
     const size = 1024;
     const canvas = document.createElement('canvas');
@@ -64,7 +55,7 @@ function createCircuitTexture() {
     const ctx = canvas.getContext('2d');
 
     // Background
-    ctx.fillStyle = '#000000'; // Black base
+    ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, size, size);
 
     // Grid lines (subtle)
@@ -100,7 +91,7 @@ function createCircuitTexture() {
         else ctx.lineTo(x, y + length);
         ctx.stroke();
 
-        // Add "Chips" or nodes at ends
+        // Add "Chips" at ends
         ctx.fillStyle = 'rgba(0, 242, 255, 0.8)';
         ctx.fillRect(x - 4, y - 4, 8, 8);
     }
@@ -112,7 +103,6 @@ function createCircuitTexture() {
     ctx.fillRect(size/2 - 100, size/2 - 100, 200, 200);
     ctx.strokeRect(size/2 - 100, size/2 - 100, 200, 200);
 
-    // Texture
     const texture = new THREE.CanvasTexture(canvas);
     return texture;
 }
@@ -122,7 +112,6 @@ function createTechCube() {
     const geometry = new THREE.BoxGeometry(2.5, 2.5, 2.5);
     const texture = createCircuitTexture();
 
-    // Material: Emissive to glow in dark
     const material = new THREE.MeshStandardMaterial({
         map: texture,
         color: 0xffffff,
@@ -152,11 +141,10 @@ function createTechCube() {
 
 function createParticles() {
     const particlesGeo = new THREE.BufferGeometry();
-    const count = 1000;
+    const count = 800; // Reduced count for performance
     const posArray = new Float32Array(count * 3);
 
     for(let i=0; i<count * 3; i++) {
-        // Spread particles wide
         posArray[i] = (Math.random() - 0.5) * 20;
     }
 
@@ -180,7 +168,6 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 
-    // Adjust camera for mobile to keep cube visible/centered
     if(window.innerWidth < 768) {
         camera.position.z = 6.5;
     } else {
@@ -189,26 +176,25 @@ function onWindowResize() {
 }
 
 function animate() {
-    animationId = requestAnimationFrame(animate);
+    requestAnimationFrame(animate);
 
     const time = Date.now() * 0.0005;
 
     // Rotate Cube
     if (cube) {
-        cube.rotation.x += 0.002;
-        cube.rotation.y += 0.003;
+        cube.rotation.x += 0.0015;
+        cube.rotation.y += 0.002;
     }
 
     // Rotate Cage (Inverse)
     if (cage) {
         cage.rotation.x -= 0.001;
-        cage.rotation.y -= 0.002;
+        cage.rotation.y -= 0.001;
     }
 
     // Float Particles
     if (particles) {
-        particles.rotation.y = time * 0.05;
-        // Pulse opacity? (Simple implementation requires shader, skipping for performance)
+        particles.rotation.y = time * 0.04;
     }
 
     renderer.render(scene, camera);
@@ -216,14 +202,10 @@ function animate() {
 
 
 // ==========================================
-// APPLICATION LOGIC (Existing)
+// APPLICATION LOGIC
 // ==========================================
 
 // DOM Elements
-const landingPage = document.getElementById('landing-page');
-const appPage = document.getElementById('app-page');
-const btnEnterApp = document.getElementById('btn-enter-app');
-
 const productSelect = document.getElementById('product-select');
 const customFileArea = document.getElementById('custom-file-area');
 const fileInput = document.getElementById('file-upload');
@@ -269,11 +251,11 @@ function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
 
-    let icon = 'ℹ️';
-    if (type === 'success') icon = '✅';
-    if (type === 'error') icon = '❌';
+    let iconClass = 'ph-info';
+    if (type === 'success') iconClass = 'ph-check-circle';
+    if (type === 'error') iconClass = 'ph-warning-circle';
 
-    toast.innerHTML = `<span class="toast-icon">${icon}</span><span class="toast-message">${message}</span>`;
+    toast.innerHTML = `<i class="ph ${iconClass} toast-icon"></i><span class="toast-message">${message}</span>`;
 
     container.appendChild(toast);
 
@@ -314,21 +296,33 @@ const log = (msg, type = 'system') => {
     }
 };
 
+function updateSerialStatus(isConnected) {
+    if (isConnected) {
+        serialStatus.classList.add('connected');
+        serialStatus.innerHTML = '<span class="status-dot"></span> Connected';
+
+        btnConnect.innerHTML = '<i class="ph ph-plug"></i> Disconnect';
+        btnConnect.classList.replace('secondary-btn', 'primary-btn');
+    } else {
+        serialStatus.classList.remove('connected');
+        serialStatus.innerHTML = '<span class="status-dot"></span> Disconnected';
+
+        btnConnect.innerHTML = '<i class="ph ph-plug"></i> Connect';
+        btnConnect.classList.replace('primary-btn', 'secondary-btn');
+    }
+}
+
 // --- INITIALIZATION ---
 async function init() {
-    // 0. Load Dependencies (ESP Web Tools)
     try {
         await import('https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module');
     } catch (e) {
-        console.warn("ESP Web Tools could not be loaded (likely offline or blocked):", e);
-        // We continue anyway so the UI still renders
+        console.warn("ESP Web Tools could not be loaded:", e);
     }
 
-    // 1. Start 3D Background
     initThreeJS();
-
-    // 2. Load App Config
     loadSettings();
+
     try {
         const response = await fetch('manifest.json');
         manifest = await response.json();
@@ -487,17 +481,13 @@ async function connectSerial() {
         log(`Connected at ${baudRate} baud.`, 'success');
         showToast('Connected to Serial Port', 'success');
 
-        serialStatus.textContent = 'Connected';
-        serialStatus.style.color = 'var(--success)';
-        btnConnect.textContent = 'Disconnect';
-        btnConnect.classList.replace('secondary-btn', 'primary-btn');
+        updateSerialStatus(true);
 
         serialInput.disabled = false;
         btnSend.disabled = false;
         btnReset.disabled = false;
 
         updateInstallButtonState();
-
         readLoop();
 
     } catch (err) {
@@ -533,10 +523,7 @@ async function disconnectSerial() {
         log('Disconnected.', 'system');
         showToast('Disconnected', 'info');
 
-        serialStatus.textContent = 'Disconnected';
-        serialStatus.style.color = 'var(--text-muted)';
-        btnConnect.textContent = 'Connect';
-        btnConnect.classList.replace('primary-btn', 'secondary-btn');
+        updateSerialStatus(false);
 
         serialInput.disabled = true;
         btnSend.disabled = true;
@@ -659,20 +646,6 @@ function setupEventListeners() {
 
     modalSettings.addEventListener('click', (e) => {
         if (e.target === modalSettings) modalSettings.classList.add('hidden');
-    });
-
-    // Navigation (Landing -> App)
-    btnEnterApp.addEventListener('click', () => {
-        landingPage.classList.add('slide-up');
-
-        // Pause 3D animation after transition to save GPU
-        setTimeout(() => {
-            appPage.classList.remove('hidden-section');
-            appPage.classList.add('active');
-
-            // Stop rendering 3D scene to save resources
-            stopThreeJS();
-        }, 800);
     });
 }
 
