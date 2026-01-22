@@ -497,16 +497,36 @@ function handleFileUpload(e) {
     fileInfo.classList.remove('hidden');
     showToast(`Loaded ${file.name}`, 'success');
 
+    // Update Dropdown Name (remove extension and sanitize)
+    let baseName = file.name.replace(/\.[^/.]+$/, "");
+    // Basic sanitization to prevent weird characters in UI
+    baseName = baseName.replace(/[^a-zA-Z0-9 _-]/g, '').trim();
+    if (!baseName) baseName = "Custom Firmware";
+
+    const customOption = productSelect.querySelector('option[value="custom"]');
+    if (customOption) {
+        customOption.textContent = baseName;
+    }
+
     // Clean up previous blobs
     if (lastCustomFileUrl) URL.revokeObjectURL(lastCustomFileUrl);
     if (lastManifestUrl) URL.revokeObjectURL(lastManifestUrl);
 
-    lastCustomFileUrl = URL.createObjectURL(file);
+    try {
+        lastCustomFileUrl = URL.createObjectURL(file);
+    } catch (err) {
+        log('Error creating object URL: ' + err.message, 'error');
+        return;
+    }
+
     const generatedManifest = {
         name: "Custom Firmware",
         version: "1.0.0",
         builds: [
-            { chipFamily: "ESP32", parts: [{ path: lastCustomFileUrl, offset: 0x10000 }] },
+            { chipFamily: "ESP32", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
+            { chipFamily: "ESP32-S2", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
+            { chipFamily: "ESP32-S3", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
+            { chipFamily: "ESP32-C3", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
             { chipFamily: "ESP8266", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] }
         ]
     };
