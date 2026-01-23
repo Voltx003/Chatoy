@@ -254,6 +254,12 @@ function animate() {
 // APPLICATION LOGIC (Existing)
 // ==========================================
 
+// Views
+const landingPage = document.getElementById('landing-page');
+const appPage = document.getElementById('app-page');
+const btnEnterApp = document.getElementById('btn-enter-app');
+const btnBackHome = document.getElementById('btn-back-home'); // From UI Refactor
+
 // DOM Elements
 const landingPage = document.getElementById('landing-page');
 const appPage = document.getElementById('app-page');
@@ -301,6 +307,7 @@ let lastManifestUrl = null;
 
 // --- UI HELPERS ---
 function showToast(message, type = 'info') {
+    // UI Refactor uses Phosphor icons
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
@@ -535,10 +542,7 @@ async function connectSerial() {
         log(`Connected at ${baudRate} baud.`, 'success');
         showToast('Connected to Serial Port', 'success');
 
-        serialStatus.textContent = 'Connected';
-        serialStatus.style.color = 'var(--success)';
-        btnConnect.textContent = 'Disconnect';
-        btnConnect.classList.replace('secondary-btn', 'primary-btn');
+        updateSerialStatus(true); // UI Refactor helper
 
         serialInput.disabled = false;
         btnSend.disabled = false;
