@@ -458,7 +458,13 @@ function handleSelection() {
         customFileArea.style.display = 'none';
         const fw = manifest.firmwares[value];
         currentFirmware = fw;
-        setupInstallButton(fw.manifest_path);
+
+        // Check if the path points directly to a .bin file
+        if (fw.manifest_path && fw.manifest_path.toLowerCase().endsWith('.bin')) {
+            setupDirectBinButton(fw.manifest_path);
+        } else {
+            setupInstallButton(fw.manifest_path);
+        }
     }
 
     updateInstallButtonState();
@@ -472,7 +478,39 @@ function setupInstallButton(manifestPath) {
     }
     const fullPath = new URL(manifestPath, window.location.href).href;
     installButton.manifest = fullPath;
-    log(`Selected firmware: ${currentFirmware.name}`, 'system');
+    log(`Selected firmware (Manifest): ${currentFirmware.name}`, 'system');
+}
+
+function setupDirectBinButton(binPath) {
+    if (!customElements.get('esp-web-install-button')) {
+        showToast('Flasher component not loaded', 'error');
+        return;
+    }
+
+    const fullPath = new URL(binPath, window.location.href).href;
+
+    // Clean up previous blobs if any
+    if (lastManifestUrl) URL.revokeObjectURL(lastManifestUrl);
+
+    // Generate dynamic manifest for the static .bin file
+    const generatedManifest = {
+        name: currentFirmware.name,
+        version: "1.0.0",
+        builds: [
+            { chipFamily: "ESP32", parts: [{ path: fullPath, offset: 0x0 }] },
+            { chipFamily: "ESP32-S2", parts: [{ path: fullPath, offset: 0x0 }] },
+            { chipFamily: "ESP32-S3", parts: [{ path: fullPath, offset: 0x0 }] },
+            { chipFamily: "ESP32-C3", parts: [{ path: fullPath, offset: 0x0 }] },
+            { chipFamily: "ESP32-C6", parts: [{ path: fullPath, offset: 0x0 }] },
+            { chipFamily: "ESP8266", parts: [{ path: fullPath, offset: 0x0 }] }
+        ]
+    };
+
+    const manifestBlob = new Blob([JSON.stringify(generatedManifest)], {type: "application/json"});
+    lastManifestUrl = URL.createObjectURL(manifestBlob);
+    installButton.manifest = lastManifestUrl;
+
+    log(`Selected firmware (Direct BIN): ${currentFirmware.name}`, 'system');
 }
 
 function updateInstallButtonState() {

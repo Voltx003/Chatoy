@@ -8,6 +8,10 @@
         {
             "name": "Marauder (Example)",
             "manifest_path": "firmware/marauder-manifest.json"
+        },
+        {
+            "name": "Direct BIN Test",
+            "manifest_path": "firmware/test.bin"
         }
     ]
 }
