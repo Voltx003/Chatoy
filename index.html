@@ -5,37 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chatoy - AI Firmware for CYD</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <!-- Three.js for 3D Landing Page -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Three.js for 3D Background -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
 </head>
 <body>
+    <!-- BACKGROUND (Persistent) -->
+    <div id="canvas-container"></div>
+    <div class="bg-overlay"></div>
+
     <div id="toast-container"></div>
 
-    <!-- LANDING PAGE -->
+    <!-- LANDING PAGE (Demo / Intro) -->
     <section id="landing-page" class="full-screen-section">
-        <div id="canvas-container"></div>
-        <div class="landing-overlay">
-            <div class="landing-content-wrapper">
-                <div class="landing-text">
-                    <h1 class="hero-title">REVOLUTIONIZE YOUR<br>CODE & FIRMWARE</h1>
-                    <p class="hero-desc">
-                        Seamless Development, Flawless Deployment. Explore tools for systems, robust programming, and over-the-air updates.
-                    </p>
-                    <button id="btn-enter-app" class="btn hero-btn">
-                        GET STARTED
-                    </button>
+        <div class="landing-content glass-effect-hero">
+            <div class="hero-icon">
+                <i class="ph ph-planet"></i>
+            </div>
+            <h1 class="hero-title">Chatoy Studio</h1>
+            <p class="hero-subtitle">Next-Gen Firmware Management</p>
+            <p class="hero-desc">
+                Experience the future of embedded development.
+                Seamlessly flash, monitor, and configure your devices in a
+                stunning 3D environment.
+            </p>
+
+            <div class="hero-actions">
+                <button id="btn-enter-app" class="btn primary-btn large-btn">
+                    <i class="ph ph-rocket-launch"></i> Launch Studio
+                </button>
+                <a href="#" class="btn secondary-btn large-btn">
+                    <i class="ph ph-github-logo"></i> Documentation
+                </a>
+            </div>
+
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <i class="ph ph-cpu"></i>
+                    <span>ESP32 Ready</span>
                 </div>
-                <div class="landing-subtext">
-                    <h3>Unlock the Future.</h3>
-                    <p>Innovate with our integrated platform for firmware flashing, and cloud-based management.</p>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <i class="ph ph-lightning"></i>
+                    <span>Fast Flashing</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <i class="ph ph-terminal"></i>
+                    <span>Web Serial</span>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- APP PAGE -->
+    <!-- APP PAGE (Hidden initially) -->
     <div id="app-page" class="container hidden-section">
         <header>
             <div class="logo">
@@ -84,6 +110,21 @@
             </div>
         </div>
 
+        <!-- Firmware Picker Modal -->
+        <div id="firmware-picker-modal" class="modal hidden">
+            <div class="modal-content card glass-effect large-modal">
+                <div class="modal-header">
+                    <h2><i class="ph ph-stack"></i> Select Project</h2>
+                    <button id="btn-close-picker" class="icon-btn"><i class="ph ph-x"></i></button>
+                </div>
+                <div class="modal-body">
+                    <div id="project-grid" class="project-grid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <main>
             <!-- Card 1: Flasher -->
             <div class="card glass-effect">
@@ -94,10 +135,20 @@
                 </div>
 
                 <div class="control-group">
-                    <label for="product-select">Select Firmware Image</label>
-                    <select id="product-select" class="styled-select">
-                        <option value="" disabled selected>Loading manifest...</option>
-                    </select>
+                    <label>Selected Firmware Project</label>
+
+                    <div class="project-selection-display" id="project-display-area">
+                        <div class="project-icon">
+                            <i class="ph ph-question"></i>
+                        </div>
+                        <div class="project-info">
+                            <h3 id="selected-project-name">No Project Selected</h3>
+                            <p id="selected-project-desc">Choose a firmware to begin</p>
+                        </div>
+                        <button id="btn-change-project" class="btn secondary-btn small-btn">
+                            Change
+                        </button>
+                    </div>
                 </div>
 
                 <div class="control-group" id="custom-file-area" style="display: none;">
@@ -164,7 +215,10 @@
         </main>
 
         <footer>
-            <p>Built with ❤️ by Jules • <a href="#">v2.0.0</a></p>
+            <button id="btn-back-home" class="btn icon-btn" style="font-size: 0.9rem; opacity: 0.7;">
+                <i class="ph ph-house"></i> Back to Home
+            </button>
+            <p>Built for exploration.</p>
         </footer>
     </div>
 

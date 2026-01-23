@@ -49,48 +49,6 @@ function initThreeJS() {
     animate();
 }
 
-function stopThreeJS() {
-    if (animationId) {
-        cancelAnimationFrame(animationId);
-        animationId = null;
-    }
-
-    if (scene) {
-        scene.traverse((object) => {
-            if (object.geometry) object.geometry.dispose();
-            if (object.material) {
-                if (Array.isArray(object.material)) {
-                    object.material.forEach(material => {
-                        if (material.map) material.map.dispose();
-                        material.dispose();
-                    });
-                } else {
-                    if (object.material.map) object.material.map.dispose();
-                    if (object.material.emissiveMap && object.material.emissiveMap !== object.material.map) {
-                        object.material.emissiveMap.dispose();
-                    }
-                    object.material.dispose();
-                }
-            }
-        });
-        scene = null;
-    }
-
-    if (renderer) {
-        renderer.dispose();
-        const canvas = renderer.domElement;
-        if (canvas && canvas.parentElement) {
-            canvas.parentElement.removeChild(canvas);
-        }
-        renderer = null;
-    }
-
-    camera = null;
-    cube = null;
-    cage = null;
-    particles = null;
-}
-
 function createCircuitTexture() {
     const size = 1024;
     const canvas = document.createElement('canvas');
@@ -187,7 +145,7 @@ function createTechCube() {
 
 function createParticles() {
     const particlesGeo = new THREE.BufferGeometry();
-    const count = 1000;
+    const count = 800;
     const posArray = new Float32Array(count * 3);
 
     for(let i=0; i<count * 3; i++) {
@@ -258,15 +216,22 @@ function animate() {
 const landingPage = document.getElementById('landing-page');
 const appPage = document.getElementById('app-page');
 const btnEnterApp = document.getElementById('btn-enter-app');
-const btnBackHome = document.getElementById('btn-back-home'); // From UI Refactor
+const btnBackHome = document.getElementById('btn-back-home');
 
 // DOM Elements
-const landingPage = document.getElementById('landing-page');
-const appPage = document.getElementById('app-page');
-const btnEnterApp = document.getElementById('btn-enter-app');
-
-const productSelect = document.getElementById('product-select');
+const customFileArea = document.getElementById('custom-file-area');
+const fileInput = document.getElementById('file-upload');
+const fileInfo = document.getElementById('file-info');
 const installButton = document.getElementById('install-button');
+
+// Project Selection Elements
+const btnChangeProject = document.getElementById('btn-change-project');
+const modalPicker = document.getElementById('firmware-picker-modal');
+const btnClosePicker = document.getElementById('btn-close-picker');
+const projectGrid = document.getElementById('project-grid');
+const selectedProjectName = document.getElementById('selected-project-name');
+const selectedProjectDesc = document.getElementById('selected-project-desc');
+const projectDisplayArea = document.getElementById('project-display-area');
 
 // Serial Elements
 const btnConnect = document.getElementById('btn-serial-connect');
@@ -295,15 +260,11 @@ let manifest = null;
 let currentFirmware = null;
 let port = null;
 let reader = null;
+let writer = null;
 let readableStreamClosed = null;
 let textEncoder = new TextEncoder();
 let buffer = '';
 let maxLogLines = 1000;
-
-let isConnecting = false;
-
-// Memory management
-let lastManifestUrl = null;
 
 // --- UI HELPERS ---
 function showToast(message, type = 'info') {
@@ -375,7 +336,7 @@ async function init() {
     try {
         const response = await fetch('manifest.json');
         manifest = await response.json();
-        populateFirmwareList();
+        populateFirmwareGrid();
         setupEventListeners();
     } catch (error) {
         log('Failed to load manifest: ' + error.message, 'error');
@@ -387,20 +348,16 @@ async function init() {
 function loadSettings() {
     const saved = localStorage.getItem('esp_tools_settings');
     if (saved) {
-        try {
-            const config = JSON.parse(saved);
-            if (config.baud && !isNaN(config.baud)) {
-                baudRateSelect.value = config.baud;
-                settingBaud.value = config.baud;
-            }
-            if (config.maxLines && !isNaN(config.maxLines)) {
-                maxLogLines = Math.max(10, Math.min(10000, parseInt(config.maxLines)));
-                settingMaxLines.value = maxLogLines;
-            }
-            if (config.remember !== undefined) settingRemember.checked = !!config.remember;
-        } catch (e) {
-            console.error("Error loading settings:", e);
+        const config = JSON.parse(saved);
+        if (config.baud) {
+            baudRateSelect.value = config.baud;
+            settingBaud.value = config.baud;
         }
+        if (config.maxLines) {
+            maxLogLines = parseInt(config.maxLines);
+            settingMaxLines.value = maxLogLines;
+        }
+        if (config.remember !== undefined) settingRemember.checked = config.remember;
     }
 }
 
@@ -424,49 +381,86 @@ function saveSettings() {
 }
 
 // --- FLASHER LOGIC ---
-function populateFirmwareList() {
-    productSelect.innerHTML = '<option value="" disabled selected>Select a firmware...</option>';
+
+// New Grid Generation Logic
+function populateFirmwareGrid() {
+    projectGrid.innerHTML = '';
 
     if (manifest && manifest.firmwares) {
         manifest.firmwares.forEach((fw, index) => {
-            const option = document.createElement('option');
-            option.value = index;
-            // Auto-hide .bin extension in display name
-            option.textContent = fw.name.replace(/\.bin$/i, '');
-            productSelect.appendChild(option);
+            const card = document.createElement('div');
+            card.className = 'project-card';
+            card.dataset.index = index;
+            card.dataset.type = 'manifest';
+
+            // Icon logic (random or specific if we had metadata)
+            const iconClass = index % 2 === 0 ? 'ph-rocket' : 'ph-planet';
+
+            card.innerHTML = `
+                <i class="ph ${iconClass} project-card-icon"></i>
+                <div class="project-card-title">${fw.name}</div>
+                <div class="project-card-chip">Firmware</div>
+            `;
+
+            card.addEventListener('click', () => selectProject(index, 'manifest'));
+            projectGrid.appendChild(card);
         });
     }
+
+    // Custom Upload Card
+    const customCard = document.createElement('div');
+    customCard.className = 'project-card';
+    customCard.dataset.type = 'custom';
+    customCard.innerHTML = `
+        <i class="ph ph-upload-simple project-card-icon" style="color: var(--accent-orange);"></i>
+        <div class="project-card-title">Custom Upload</div>
+        <div class="project-card-chip" style="color: var(--accent-orange); background: rgba(255,157,0,0.1);">.bin File</div>
+    `;
+    customCard.addEventListener('click', () => selectProject(null, 'custom'));
+    projectGrid.appendChild(customCard);
 }
 
-function handleSelection() {
-    const value = productSelect.value;
-
+function selectProject(index, type) {
     if (port) {
         showToast('Please disconnect Serial Monitor to flash', 'error');
+        return; // Don't allow changing if connected
     }
 
+    // Reset UI
     installButton.manifest = null;
     currentFirmware = null;
 
-    const fw = manifest.firmwares[value];
-    currentFirmware = fw;
+    // Highlight active card
+    document.querySelectorAll('.project-card').forEach(c => c.classList.remove('active'));
+    // Find the card that was clicked (based on type/index)
+    // Note: Since we are inside the click handler, we could pass 'this' but simple query works too
 
-    // Check if the path points directly to a .bin file
-    if (fw.manifest_path && fw.manifest_path.toLowerCase().endsWith('.bin')) {
-        setupDirectBinButton(fw.manifest_path);
+    if (type === 'custom') {
+        customFileArea.style.display = 'block';
+        installButton.classList.add('hidden');
+        fileInput.value = '';
+        fileInfo.textContent = '';
+
+        selectedProjectName.textContent = "Custom Firmware";
+        selectedProjectDesc.textContent = "Upload a .bin file manually";
+
     } else {
+        customFileArea.style.display = 'none';
+        const fw = manifest.firmwares[index];
+        currentFirmware = fw;
         setupInstallButton(fw.manifest_path);
+
+        selectedProjectName.textContent = fw.name;
+        selectedProjectDesc.textContent = "Ready to flash";
     }
 
+    // Close Modal
+    modalPicker.classList.add('hidden');
     updateInstallButtonState();
 }
 
+
 function setupInstallButton(manifestPath) {
-    if (!customElements.get('esp-web-install-button')) {
-        showToast('Flasher component not loaded (Check Internet)', 'error');
-        log('Flasher component missing. Cannot load firmware manifest.', 'error');
-        return;
-    }
     const fullPath = new URL(manifestPath, window.location.href).href;
     installButton.manifest = fullPath;
     log(`Selected firmware (Manifest): ${currentFirmware.name}`, 'system');
@@ -478,38 +472,23 @@ function setupDirectBinButton(binPath) {
         return;
     }
 
-    const fullPath = new URL(binPath, window.location.href).href;
+    fileInfo.textContent = `✅ Ready: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+    fileInfo.classList.remove('hidden');
+    showToast(`Loaded ${file.name}`, 'success');
 
-    // Clean up previous blobs if any
-    if (lastManifestUrl) URL.revokeObjectURL(lastManifestUrl);
-
-    // Generate dynamic manifest for the static .bin file
+    const fileUrl = URL.createObjectURL(file);
     const generatedManifest = {
         name: currentFirmware.name,
         version: "1.0.0",
         builds: [
-            { chipFamily: "ESP32", parts: [{ path: fullPath, offset: 0x0 }] },
-            { chipFamily: "ESP32-S2", parts: [{ path: fullPath, offset: 0x0 }] },
-            { chipFamily: "ESP32-S3", parts: [{ path: fullPath, offset: 0x0 }] },
-            { chipFamily: "ESP32-C3", parts: [{ path: fullPath, offset: 0x0 }] },
-            { chipFamily: "ESP32-C6", parts: [{ path: fullPath, offset: 0x0 }] },
-            { chipFamily: "ESP8266", parts: [{ path: fullPath, offset: 0x0 }] }
+            { chipFamily: "ESP32", parts: [{ path: fileUrl, offset: 0x10000 }] },
+            { chipFamily: "ESP8266", parts: [{ path: fileUrl, offset: 0x0 }] }
         ]
     };
 
     const manifestBlob = new Blob([JSON.stringify(generatedManifest)], {type: "application/json"});
-    lastManifestUrl = URL.createObjectURL(manifestBlob);
-    installButton.manifest = lastManifestUrl;
-
-    log(`Selected firmware (Direct BIN): ${currentFirmware.name}`, 'system');
-}
-
-function updateInstallButtonState() {
-    if ((currentFirmware || installButton.manifest) && !port) {
-        installButton.classList.remove('hidden');
-    } else {
-        installButton.classList.add('hidden');
-    }
+    installButton.manifest = URL.createObjectURL(manifestBlob);
+    updateInstallButtonState();
 }
 
 // handleFileUpload removed - Custom uploads disabled
@@ -517,7 +496,6 @@ function updateInstallButtonState() {
 // --- SERIAL MONITOR LOGIC ---
 
 async function toggleConnect() {
-    if (isConnecting) return;
     if (port) {
         await disconnectSerial();
     } else {
@@ -531,13 +509,10 @@ async function connectSerial() {
         return;
     }
 
-    isConnecting = true;
     try {
-        const selectedPort = await navigator.serial.requestPort();
+        port = await navigator.serial.requestPort();
         const baudRate = parseInt(baudRateSelect.value);
-        await selectedPort.open({ baudRate });
-
-        port = selectedPort; // Assign only after successful open
+        await port.open({ baudRate });
 
         log(`Connected at ${baudRate} baud.`, 'success');
         showToast('Connected to Serial Port', 'success');
@@ -555,9 +530,6 @@ async function connectSerial() {
     } catch (err) {
         log('Error connecting: ' + err.message, 'error');
         showToast('Connection failed', 'error');
-        port = null;
-    } finally {
-        isConnecting = false;
     }
 }
 
@@ -565,11 +537,14 @@ async function disconnectSerial() {
     if (port) {
         try {
             if (reader) {
-                await reader.cancel().catch(e => console.warn('Reader cancel failed:', e));
+                await reader.cancel();
                 await readableStreamClosed.catch(() => {});
                 reader = null;
             }
-
+            if (writer) {
+                writer.releaseLock();
+                writer = null;
+            }
             await port.close();
 
             if (buffer.length > 0) {
@@ -578,8 +553,7 @@ async function disconnectSerial() {
             }
 
         } catch (e) {
-            console.error('Disconnect error:', e);
-            log('Error disconnecting: ' + e.message, 'error');
+            console.error(e);
         }
 
         port = null;
@@ -635,13 +609,6 @@ async function readLoop() {
 
 function processIncomingData(chunk) {
     buffer += chunk;
-
-    // Safety: Prevent buffer from growing indefinitely if no newline is received
-    if (buffer.length > 50000) {
-        log(buffer + ' [Buffer Limit Reached - Flushed]', 'in');
-        buffer = '';
-    }
-
     const lines = buffer.split('\n');
     buffer = lines.pop();
 
@@ -686,7 +653,9 @@ function downloadLogs() {
 
 // --- EVENTS ---
 function setupEventListeners() {
-    productSelect.addEventListener('change', handleSelection);
+    // Replaced productSelect.addEventListener with modal logic
+
+    fileInput.addEventListener('change', handleFileUpload);
 
     btnConnect.addEventListener('click', toggleConnect);
     btnReset.addEventListener('click', resetDevice);
@@ -712,27 +681,42 @@ function setupEventListeners() {
         });
     });
 
+    // Settings Modal
     btnSettings.addEventListener('click', () => modalSettings.classList.remove('hidden'));
     btnCloseSettings.addEventListener('click', () => modalSettings.classList.add('hidden'));
     btnSaveSettings.addEventListener('click', saveSettings);
-
     modalSettings.addEventListener('click', (e) => {
         if (e.target === modalSettings) modalSettings.classList.add('hidden');
+    });
+
+    // Firmware Picker Modal
+    btnChangeProject.addEventListener('click', () => modalPicker.classList.remove('hidden'));
+    btnClosePicker.addEventListener('click', () => modalPicker.classList.add('hidden'));
+    modalPicker.addEventListener('click', (e) => {
+        if (e.target === modalPicker) modalPicker.classList.add('hidden');
     });
 
     // Navigation (Landing -> App)
     btnEnterApp.addEventListener('click', () => {
         landingPage.classList.add('slide-up');
 
-        // Pause 3D animation after transition to save GPU
         setTimeout(() => {
             appPage.classList.remove('hidden-section');
             appPage.classList.add('active');
-
-            // Stop rendering 3D scene to save resources
-            stopThreeJS();
         }, 800);
     });
+
+    // Navigation (App -> Home) (Optional, if we want a back button)
+    if (btnBackHome) {
+        btnBackHome.addEventListener('click', () => {
+            appPage.classList.remove('active');
+            appPage.classList.add('hidden-section');
+
+            setTimeout(() => {
+                landingPage.classList.remove('slide-up');
+            }, 300);
+        });
+    }
 }
 
 // Start
