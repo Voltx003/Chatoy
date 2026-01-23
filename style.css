@@ -312,23 +312,123 @@ header {
     color: var(--text-muted);
 }
 
-.select-wrapper {
-    position: relative;
+/* === Project Selection Component === */
+.project-selection-display {
     display: flex;
     align-items: center;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--card-border);
+    border-radius: 1rem;
+    padding: 1rem;
+    gap: 1rem;
+    transition: all 0.2s;
 }
 
-.select-wrapper.compact {
-    width: 120px;
+.project-selection-display:hover {
+    background: rgba(0,0,0,0.3);
+    border-color: rgba(255,255,255,0.2);
 }
 
-.select-icon {
-    position: absolute;
-    right: 1rem;
-    pointer-events: none;
+.project-icon {
+    width: 48px;
+    height: 48px;
+    background: rgba(0, 242, 255, 0.1);
+    border-radius: 0.75rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5rem;
+    color: var(--primary-color);
+}
+
+.project-info {
+    flex: 1;
+}
+
+.project-info h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 0.25rem;
+}
+
+.project-info p {
+    font-size: 0.85rem;
     color: var(--text-muted);
 }
 
+.small-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+}
+
+
+/* === Project Grid Modal === */
+.large-modal {
+    max-width: 800px !important;
+    width: 95% !important;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.project-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.5rem;
+    padding: 1rem 0;
+    overflow-y: auto;
+    max-height: 60vh;
+}
+
+.project-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--card-border);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.project-card:hover {
+    background: rgba(255,255,255,0.08);
+    transform: translateY(-4px);
+    border-color: var(--primary-color);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+}
+
+.project-card.active {
+    background: rgba(0, 242, 255, 0.05);
+    border-color: var(--primary-color);
+}
+
+.project-card-icon {
+    font-size: 2.5rem;
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+    filter: drop-shadow(0 0 8px rgba(0,242,255,0.3));
+}
+
+.project-card-title {
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+.project-card-chip {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    background: rgba(255,255,255,0.1);
+    padding: 0.2rem 0.6rem;
+    border-radius: 1rem;
+}
+
+/* === Common Inputs === */
 .styled-select, .styled-input {
     width: 100%;
     padding: 0.75rem 1rem;
@@ -348,6 +448,24 @@ header {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 2px rgba(0, 242, 255, 0.1);
 }
+
+.select-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.select-wrapper.compact {
+    width: 120px;
+}
+
+.select-icon {
+    position: absolute;
+    right: 1rem;
+    pointer-events: none;
+    color: var(--text-muted);
+}
+
 
 /* File Upload */
 .file-drop-zone {
@@ -686,4 +804,8 @@ footer {
 
     .header-controls { position: relative; text-align: center; margin-bottom: 1rem; right: auto; top: auto; }
     #toast-container { left: 1rem; right: 1rem; bottom: 1rem; }
+
+    .project-grid {
+        grid-template-columns: 1fr; /* Single column on mobile */
+    }
 }

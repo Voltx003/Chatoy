@@ -212,11 +212,19 @@ const btnEnterApp = document.getElementById('btn-enter-app');
 const btnBackHome = document.getElementById('btn-back-home');
 
 // DOM Elements
-const productSelect = document.getElementById('product-select');
 const customFileArea = document.getElementById('custom-file-area');
 const fileInput = document.getElementById('file-upload');
 const fileInfo = document.getElementById('file-info');
 const installButton = document.getElementById('install-button');
+
+// Project Selection Elements
+const btnChangeProject = document.getElementById('btn-change-project');
+const modalPicker = document.getElementById('firmware-picker-modal');
+const btnClosePicker = document.getElementById('btn-close-picker');
+const projectGrid = document.getElementById('project-grid');
+const selectedProjectName = document.getElementById('selected-project-name');
+const selectedProjectDesc = document.getElementById('selected-project-desc');
+const projectDisplayArea = document.getElementById('project-display-area');
 
 // Serial Elements
 const btnConnect = document.getElementById('btn-serial-connect');
@@ -332,7 +340,7 @@ async function init() {
     try {
         const response = await fetch('manifest.json');
         manifest = await response.json();
-        populateFirmwareList();
+        populateFirmwareGrid();
         setupEventListeners();
     } catch (error) {
         log('Failed to load manifest: ' + error.message, 'error');
@@ -377,48 +385,84 @@ function saveSettings() {
 }
 
 // --- FLASHER LOGIC ---
-function populateFirmwareList() {
-    productSelect.innerHTML = '<option value="" disabled selected>Select a firmware...</option>';
+
+// New Grid Generation Logic
+function populateFirmwareGrid() {
+    projectGrid.innerHTML = '';
 
     if (manifest && manifest.firmwares) {
         manifest.firmwares.forEach((fw, index) => {
-            const option = document.createElement('option');
-            option.value = index;
-            option.textContent = fw.name;
-            productSelect.appendChild(option);
+            const card = document.createElement('div');
+            card.className = 'project-card';
+            card.dataset.index = index;
+            card.dataset.type = 'manifest';
+
+            // Icon logic (random or specific if we had metadata)
+            const iconClass = index % 2 === 0 ? 'ph-rocket' : 'ph-planet';
+
+            card.innerHTML = `
+                <i class="ph ${iconClass} project-card-icon"></i>
+                <div class="project-card-title">${fw.name}</div>
+                <div class="project-card-chip">Firmware</div>
+            `;
+
+            card.addEventListener('click', () => selectProject(index, 'manifest'));
+            projectGrid.appendChild(card);
         });
     }
 
-    const customOption = document.createElement('option');
-    customOption.value = 'custom';
-    customOption.textContent = 'Upload Custom .bin File';
-    productSelect.appendChild(customOption);
+    // Custom Upload Card
+    const customCard = document.createElement('div');
+    customCard.className = 'project-card';
+    customCard.dataset.type = 'custom';
+    customCard.innerHTML = `
+        <i class="ph ph-upload-simple project-card-icon" style="color: var(--accent-orange);"></i>
+        <div class="project-card-title">Custom Upload</div>
+        <div class="project-card-chip" style="color: var(--accent-orange); background: rgba(255,157,0,0.1);">.bin File</div>
+    `;
+    customCard.addEventListener('click', () => selectProject(null, 'custom'));
+    projectGrid.appendChild(customCard);
 }
 
-function handleSelection() {
-    const value = productSelect.value;
-
+function selectProject(index, type) {
     if (port) {
         showToast('Please disconnect Serial Monitor to flash', 'error');
+        return; // Don't allow changing if connected
     }
 
+    // Reset UI
     installButton.manifest = null;
     currentFirmware = null;
 
-    if (value === 'custom') {
+    // Highlight active card
+    document.querySelectorAll('.project-card').forEach(c => c.classList.remove('active'));
+    // Find the card that was clicked (based on type/index)
+    // Note: Since we are inside the click handler, we could pass 'this' but simple query works too
+
+    if (type === 'custom') {
         customFileArea.style.display = 'block';
         installButton.classList.add('hidden');
         fileInput.value = '';
         fileInfo.textContent = '';
+
+        selectedProjectName.textContent = "Custom Firmware";
+        selectedProjectDesc.textContent = "Upload a .bin file manually";
+
     } else {
         customFileArea.style.display = 'none';
-        const fw = manifest.firmwares[value];
+        const fw = manifest.firmwares[index];
         currentFirmware = fw;
         setupInstallButton(fw.manifest_path);
+
+        selectedProjectName.textContent = fw.name;
+        selectedProjectDesc.textContent = "Ready to flash";
     }
 
+    // Close Modal
+    modalPicker.classList.add('hidden');
     updateInstallButtonState();
 }
+
 
 function setupInstallButton(manifestPath) {
     const fullPath = new URL(manifestPath, window.location.href).href;
@@ -619,7 +663,8 @@ function downloadLogs() {
 
 // --- EVENTS ---
 function setupEventListeners() {
-    productSelect.addEventListener('change', handleSelection);
+    // Replaced productSelect.addEventListener with modal logic
+
     fileInput.addEventListener('change', handleFileUpload);
 
     btnConnect.addEventListener('click', toggleConnect);
@@ -646,12 +691,19 @@ function setupEventListeners() {
         });
     });
 
+    // Settings Modal
     btnSettings.addEventListener('click', () => modalSettings.classList.remove('hidden'));
     btnCloseSettings.addEventListener('click', () => modalSettings.classList.add('hidden'));
     btnSaveSettings.addEventListener('click', saveSettings);
-
     modalSettings.addEventListener('click', (e) => {
         if (e.target === modalSettings) modalSettings.classList.add('hidden');
+    });
+
+    // Firmware Picker Modal
+    btnChangeProject.addEventListener('click', () => modalPicker.classList.remove('hidden'));
+    btnClosePicker.addEventListener('click', () => modalPicker.classList.add('hidden'));
+    modalPicker.addEventListener('click', (e) => {
+        if (e.target === modalPicker) modalPicker.classList.add('hidden');
     });
 
     // Navigation (Landing -> App)

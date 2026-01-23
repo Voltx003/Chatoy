@@ -108,6 +108,21 @@
             </div>
         </div>
 
+        <!-- Firmware Picker Modal -->
+        <div id="firmware-picker-modal" class="modal hidden">
+            <div class="modal-content card glass-effect large-modal">
+                <div class="modal-header">
+                    <h2><i class="ph ph-stack"></i> Select Project</h2>
+                    <button id="btn-close-picker" class="icon-btn"><i class="ph ph-x"></i></button>
+                </div>
+                <div class="modal-body">
+                    <div id="project-grid" class="project-grid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <main>
             <!-- Card 1: Flasher -->
             <div class="card glass-effect flasher-card">
@@ -118,12 +133,19 @@
                 </div>
 
                 <div class="control-group">
-                    <label for="product-select">Select Firmware Image</label>
-                    <div class="select-wrapper">
-                        <select id="product-select" class="styled-select">
-                            <option value="" disabled selected>Loading manifest...</option>
-                        </select>
-                        <i class="ph ph-caret-down select-icon"></i>
+                    <label>Selected Firmware Project</label>
+
+                    <div class="project-selection-display" id="project-display-area">
+                        <div class="project-icon">
+                            <i class="ph ph-question"></i>
+                        </div>
+                        <div class="project-info">
+                            <h3 id="selected-project-name">No Project Selected</h3>
+                            <p id="selected-project-desc">Choose a firmware to begin</p>
+                        </div>
+                        <button id="btn-change-project" class="btn secondary-btn small-btn">
+                            Change
+                        </button>
                     </div>
                 </div>
 
