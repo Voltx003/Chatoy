@@ -2,10 +2,11 @@
 // import { InstallButton } from 'https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module';
 
 // ==========================================
-// 3D BACKGROUND LOGIC (Three.js) - FROM UI REFACTOR
+// 3D LANDING PAGE LOGIC (Three.js)
 // ==========================================
 
 let scene, camera, renderer, cube, cage, particles;
+let animationId;
 const canvasContainer = document.getElementById('canvas-container');
 
 function initThreeJS() {
@@ -13,6 +14,7 @@ function initThreeJS() {
 
     // 1. Scene & Camera
     scene = new THREE.Scene();
+    // Add some fog for depth
     scene.fog = new THREE.FogExp2(0x0b0f19, 0.002);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -47,6 +49,48 @@ function initThreeJS() {
     animate();
 }
 
+function stopThreeJS() {
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+    }
+
+    if (scene) {
+        scene.traverse((object) => {
+            if (object.geometry) object.geometry.dispose();
+            if (object.material) {
+                if (Array.isArray(object.material)) {
+                    object.material.forEach(material => {
+                        if (material.map) material.map.dispose();
+                        material.dispose();
+                    });
+                } else {
+                    if (object.material.map) object.material.map.dispose();
+                    if (object.material.emissiveMap && object.material.emissiveMap !== object.material.map) {
+                        object.material.emissiveMap.dispose();
+                    }
+                    object.material.dispose();
+                }
+            }
+        });
+        scene = null;
+    }
+
+    if (renderer) {
+        renderer.dispose();
+        const canvas = renderer.domElement;
+        if (canvas && canvas.parentElement) {
+            canvas.parentElement.removeChild(canvas);
+        }
+        renderer = null;
+    }
+
+    camera = null;
+    cube = null;
+    cage = null;
+    particles = null;
+}
+
 function createCircuitTexture() {
     const size = 1024;
     const canvas = document.createElement('canvas');
@@ -55,7 +99,7 @@ function createCircuitTexture() {
     const ctx = canvas.getContext('2d');
 
     // Background
-    ctx.fillStyle = '#000000';
+    ctx.fillStyle = '#000000'; // Black base
     ctx.fillRect(0, 0, size, size);
 
     // Grid lines (subtle)
@@ -91,7 +135,7 @@ function createCircuitTexture() {
         else ctx.lineTo(x, y + length);
         ctx.stroke();
 
-        // Add "Chips" at ends
+        // Add "Chips" or nodes at ends
         ctx.fillStyle = 'rgba(0, 242, 255, 0.8)';
         ctx.fillRect(x - 4, y - 4, 8, 8);
     }
@@ -103,6 +147,7 @@ function createCircuitTexture() {
     ctx.fillRect(size/2 - 100, size/2 - 100, 200, 200);
     ctx.strokeRect(size/2 - 100, size/2 - 100, 200, 200);
 
+    // Texture
     const texture = new THREE.CanvasTexture(canvas);
     return texture;
 }
@@ -112,6 +157,7 @@ function createTechCube() {
     const geometry = new THREE.BoxGeometry(2.5, 2.5, 2.5);
     const texture = createCircuitTexture();
 
+    // Material: Emissive to glow in dark
     const material = new THREE.MeshStandardMaterial({
         map: texture,
         color: 0xffffff,
@@ -141,10 +187,11 @@ function createTechCube() {
 
 function createParticles() {
     const particlesGeo = new THREE.BufferGeometry();
-    const count = 800;
+    const count = 1000;
     const posArray = new Float32Array(count * 3);
 
     for(let i=0; i<count * 3; i++) {
+        // Spread particles wide
         posArray[i] = (Math.random() - 0.5) * 20;
     }
 
@@ -168,6 +215,7 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 
+    // Adjust camera for mobile to keep cube visible/centered
     if(window.innerWidth < 768) {
         camera.position.z = 6.5;
     } else {
@@ -176,25 +224,26 @@ function onWindowResize() {
 }
 
 function animate() {
-    requestAnimationFrame(animate);
+    animationId = requestAnimationFrame(animate);
 
     const time = Date.now() * 0.0005;
 
     // Rotate Cube
     if (cube) {
-        cube.rotation.x += 0.0015;
-        cube.rotation.y += 0.002;
+        cube.rotation.x += 0.002;
+        cube.rotation.y += 0.003;
     }
 
     // Rotate Cage (Inverse)
     if (cage) {
         cage.rotation.x -= 0.001;
-        cage.rotation.y -= 0.001;
+        cage.rotation.y -= 0.002;
     }
 
     // Float Particles
     if (particles) {
-        particles.rotation.y = time * 0.04;
+        particles.rotation.y = time * 0.05;
+        // Pulse opacity? (Simple implementation requires shader, skipping for performance)
     }
 
     renderer.render(scene, camera);
@@ -202,7 +251,7 @@ function animate() {
 
 
 // ==========================================
-// APPLICATION LOGIC
+// APPLICATION LOGIC (Existing)
 // ==========================================
 
 // Views
@@ -212,10 +261,11 @@ const btnEnterApp = document.getElementById('btn-enter-app');
 const btnBackHome = document.getElementById('btn-back-home'); // From UI Refactor
 
 // DOM Elements
+const landingPage = document.getElementById('landing-page');
+const appPage = document.getElementById('app-page');
+const btnEnterApp = document.getElementById('btn-enter-app');
+
 const productSelect = document.getElementById('product-select');
-const customFileArea = document.getElementById('custom-file-area');
-const fileInput = document.getElementById('file-upload');
-const fileInfo = document.getElementById('file-info');
 const installButton = document.getElementById('install-button');
 
 // Serial Elements
@@ -245,17 +295,15 @@ let manifest = null;
 let currentFirmware = null;
 let port = null;
 let reader = null;
-// writer removed as per Logic Fixes
 let readableStreamClosed = null;
 let textEncoder = new TextEncoder();
 let buffer = '';
 let maxLogLines = 1000;
 
-let isConnecting = false; // From Logic Fixes
+let isConnecting = false;
 
-// Memory management for custom uploads
-let lastCustomFileUrl = null; // From Logic Fixes
-let lastManifestUrl = null; // From Logic Fixes
+// Memory management
+let lastManifestUrl = null;
 
 // --- UI HELPERS ---
 function showToast(message, type = 'info') {
@@ -264,11 +312,11 @@ function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
 
-    let iconClass = 'ph-info';
-    if (type === 'success') iconClass = 'ph-check-circle';
-    if (type === 'error') iconClass = 'ph-warning-circle';
+    let icon = 'ℹ️';
+    if (type === 'success') icon = '✅';
+    if (type === 'error') icon = '❌';
 
-    toast.innerHTML = `<i class="ph ${iconClass} toast-icon"></i><span class="toast-message">${message}</span>`;
+    toast.innerHTML = `<span class="toast-icon">${icon}</span><span class="toast-message">${message}</span>`;
 
     container.appendChild(toast);
 
@@ -309,33 +357,21 @@ const log = (msg, type = 'system') => {
     }
 };
 
-function updateSerialStatus(isConnected) {
-    if (isConnected) {
-        serialStatus.classList.add('connected');
-        serialStatus.innerHTML = '<span class="status-dot"></span> Connected';
-
-        btnConnect.innerHTML = '<i class="ph ph-plug"></i> Disconnect';
-        btnConnect.classList.replace('secondary-btn', 'primary-btn');
-    } else {
-        serialStatus.classList.remove('connected');
-        serialStatus.innerHTML = '<span class="status-dot"></span> Disconnected';
-
-        btnConnect.innerHTML = '<i class="ph ph-plug"></i> Connect';
-        btnConnect.classList.replace('primary-btn', 'secondary-btn');
-    }
-}
-
 // --- INITIALIZATION ---
 async function init() {
+    // 0. Load Dependencies (ESP Web Tools)
     try {
         await import('https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module');
     } catch (e) {
-        console.warn("ESP Web Tools could not be loaded:", e);
+        console.warn("ESP Web Tools could not be loaded (likely offline or blocked):", e);
+        // We continue anyway so the UI still renders
     }
 
+    // 1. Start 3D Background
     initThreeJS();
-    loadSettings();
 
+    // 2. Load App Config
+    loadSettings();
     try {
         const response = await fetch('manifest.json');
         manifest = await response.json();
@@ -351,16 +387,20 @@ async function init() {
 function loadSettings() {
     const saved = localStorage.getItem('esp_tools_settings');
     if (saved) {
-        const config = JSON.parse(saved);
-        if (config.baud) {
-            baudRateSelect.value = config.baud;
-            settingBaud.value = config.baud;
+        try {
+            const config = JSON.parse(saved);
+            if (config.baud && !isNaN(config.baud)) {
+                baudRateSelect.value = config.baud;
+                settingBaud.value = config.baud;
+            }
+            if (config.maxLines && !isNaN(config.maxLines)) {
+                maxLogLines = Math.max(10, Math.min(10000, parseInt(config.maxLines)));
+                settingMaxLines.value = maxLogLines;
+            }
+            if (config.remember !== undefined) settingRemember.checked = !!config.remember;
+        } catch (e) {
+            console.error("Error loading settings:", e);
         }
-        if (config.maxLines) {
-            maxLogLines = parseInt(config.maxLines);
-            settingMaxLines.value = maxLogLines;
-        }
-        if (config.remember !== undefined) settingRemember.checked = config.remember;
     }
 }
 
@@ -391,15 +431,11 @@ function populateFirmwareList() {
         manifest.firmwares.forEach((fw, index) => {
             const option = document.createElement('option');
             option.value = index;
-            option.textContent = fw.name;
+            // Auto-hide .bin extension in display name
+            option.textContent = fw.name.replace(/\.bin$/i, '');
             productSelect.appendChild(option);
         });
     }
-
-    const customOption = document.createElement('option');
-    customOption.value = 'custom';
-    customOption.textContent = 'Upload Custom .bin File';
-    productSelect.appendChild(customOption);
 }
 
 function handleSelection() {
@@ -412,15 +448,13 @@ function handleSelection() {
     installButton.manifest = null;
     currentFirmware = null;
 
-    if (value === 'custom') {
-        customFileArea.style.display = 'block';
-        installButton.classList.add('hidden');
-        fileInput.value = '';
-        fileInfo.textContent = '';
+    const fw = manifest.firmwares[value];
+    currentFirmware = fw;
+
+    // Check if the path points directly to a .bin file
+    if (fw.manifest_path && fw.manifest_path.toLowerCase().endsWith('.bin')) {
+        setupDirectBinButton(fw.manifest_path);
     } else {
-        customFileArea.style.display = 'none';
-        const fw = manifest.firmwares[value];
-        currentFirmware = fw;
         setupInstallButton(fw.manifest_path);
     }
 
@@ -428,9 +462,46 @@ function handleSelection() {
 }
 
 function setupInstallButton(manifestPath) {
+    if (!customElements.get('esp-web-install-button')) {
+        showToast('Flasher component not loaded (Check Internet)', 'error');
+        log('Flasher component missing. Cannot load firmware manifest.', 'error');
+        return;
+    }
     const fullPath = new URL(manifestPath, window.location.href).href;
     installButton.manifest = fullPath;
-    log(`Selected firmware: ${currentFirmware.name}`, 'system');
+    log(`Selected firmware (Manifest): ${currentFirmware.name}`, 'system');
+}
+
+function setupDirectBinButton(binPath) {
+    if (!customElements.get('esp-web-install-button')) {
+        showToast('Flasher component not loaded', 'error');
+        return;
+    }
+
+    const fullPath = new URL(binPath, window.location.href).href;
+
+    // Clean up previous blobs if any
+    if (lastManifestUrl) URL.revokeObjectURL(lastManifestUrl);
+
+    // Generate dynamic manifest for the static .bin file
+    const generatedManifest = {
+        name: currentFirmware.name,
+        version: "1.0.0",
+        builds: [
+            { chipFamily: "ESP32", parts: [{ path: fullPath, offset: 0x0 }] },
+            { chipFamily: "ESP32-S2", parts: [{ path: fullPath, offset: 0x0 }] },
+            { chipFamily: "ESP32-S3", parts: [{ path: fullPath, offset: 0x0 }] },
+            { chipFamily: "ESP32-C3", parts: [{ path: fullPath, offset: 0x0 }] },
+            { chipFamily: "ESP32-C6", parts: [{ path: fullPath, offset: 0x0 }] },
+            { chipFamily: "ESP8266", parts: [{ path: fullPath, offset: 0x0 }] }
+        ]
+    };
+
+    const manifestBlob = new Blob([JSON.stringify(generatedManifest)], {type: "application/json"});
+    lastManifestUrl = URL.createObjectURL(manifestBlob);
+    installButton.manifest = lastManifestUrl;
+
+    log(`Selected firmware (Direct BIN): ${currentFirmware.name}`, 'system');
 }
 
 function updateInstallButtonState() {
@@ -441,63 +512,12 @@ function updateInstallButtonState() {
     }
 }
 
-function handleFileUpload(e) {
-    // Logic Fixes: Memory management and Sanitization
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!file.name.endsWith('.bin')) {
-        showToast('Invalid file type (only .bin)', 'error');
-        fileInfo.textContent = 'Invalid file type';
-        return;
-    }
-
-    fileInfo.textContent = `✅ Ready: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-    fileInfo.classList.remove('hidden');
-    showToast(`Loaded ${file.name}`, 'success');
-
-    // Update Dropdown Name (remove extension and sanitize)
-    let baseName = file.name.replace(/\.[^/.]+$/, "");
-    // Basic sanitization to prevent weird characters in UI
-    baseName = baseName.replace(/[^a-zA-Z0-9 _-]/g, '').trim();
-    if (!baseName) baseName = "Custom Firmware";
-
-    const customOption = productSelect.querySelector('option[value="custom"]');
-    if (customOption) {
-        customOption.textContent = baseName;
-    }
-
-    // Clean up previous blobs
-    if (lastCustomFileUrl) URL.revokeObjectURL(lastCustomFileUrl);
-    if (lastManifestUrl) URL.revokeObjectURL(lastManifestUrl);
-
-    try {
-        lastCustomFileUrl = URL.createObjectURL(file);
-    } catch (err) {
-        log('Error creating object URL: ' + err.message, 'error');
-        return;
-    }
-
-    const generatedManifest = {
-        name: "Custom Firmware",
-        version: "1.0.0",
-        builds: [
-            { chipFamily: "ESP32", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP32-S2", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP32-S3", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP32-C3", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP8266", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] }
-        ]
-    };
-
-    const manifestBlob = new Blob([JSON.stringify(generatedManifest)], {type: "application/json"});
-    installButton.manifest = URL.createObjectURL(manifestBlob);
-    updateInstallButtonState();
-}
+// handleFileUpload removed - Custom uploads disabled
 
 // --- SERIAL MONITOR LOGIC ---
 
 async function toggleConnect() {
+    if (isConnecting) return;
     if (port) {
         await disconnectSerial();
     } else {
@@ -511,10 +531,13 @@ async function connectSerial() {
         return;
     }
 
+    isConnecting = true;
     try {
-        port = await navigator.serial.requestPort();
+        const selectedPort = await navigator.serial.requestPort();
         const baudRate = parseInt(baudRateSelect.value);
-        await port.open({ baudRate });
+        await selectedPort.open({ baudRate });
+
+        port = selectedPort; // Assign only after successful open
 
         log(`Connected at ${baudRate} baud.`, 'success');
         showToast('Connected to Serial Port', 'success');
@@ -526,11 +549,15 @@ async function connectSerial() {
         btnReset.disabled = false;
 
         updateInstallButtonState();
+
         readLoop();
 
     } catch (err) {
         log('Error connecting: ' + err.message, 'error');
         showToast('Connection failed', 'error');
+        port = null;
+    } finally {
+        isConnecting = false;
     }
 }
 
@@ -538,12 +565,10 @@ async function disconnectSerial() {
     if (port) {
         try {
             if (reader) {
-                await reader.cancel();
+                await reader.cancel().catch(e => console.warn('Reader cancel failed:', e));
                 await readableStreamClosed.catch(() => {});
                 reader = null;
             }
-
-            // Writer release is handled locally in sendData in Logic Fixes
 
             await port.close();
 
@@ -553,14 +578,18 @@ async function disconnectSerial() {
             }
 
         } catch (e) {
-            console.error(e);
+            console.error('Disconnect error:', e);
+            log('Error disconnecting: ' + e.message, 'error');
         }
 
         port = null;
         log('Disconnected.', 'system');
         showToast('Disconnected', 'info');
 
-        updateSerialStatus(false); // UI Refactor helper
+        serialStatus.textContent = 'Disconnected';
+        serialStatus.style.color = 'var(--text-muted)';
+        btnConnect.textContent = 'Connect';
+        btnConnect.classList.replace('primary-btn', 'secondary-btn');
 
         serialInput.disabled = true;
         btnSend.disabled = true;
@@ -606,6 +635,13 @@ async function readLoop() {
 
 function processIncomingData(chunk) {
     buffer += chunk;
+
+    // Safety: Prevent buffer from growing indefinitely if no newline is received
+    if (buffer.length > 50000) {
+        log(buffer + ' [Buffer Limit Reached - Flushed]', 'in');
+        buffer = '';
+    }
+
     const lines = buffer.split('\n');
     buffer = lines.pop();
 
@@ -651,7 +687,6 @@ function downloadLogs() {
 // --- EVENTS ---
 function setupEventListeners() {
     productSelect.addEventListener('change', handleSelection);
-    fileInput.addEventListener('change', handleFileUpload);
 
     btnConnect.addEventListener('click', toggleConnect);
     btnReset.addEventListener('click', resetDevice);
@@ -689,24 +724,15 @@ function setupEventListeners() {
     btnEnterApp.addEventListener('click', () => {
         landingPage.classList.add('slide-up');
 
+        // Pause 3D animation after transition to save GPU
         setTimeout(() => {
             appPage.classList.remove('hidden-section');
             appPage.classList.add('active');
-            // Logic Fix removed stopThreeJS() to support persistent background
+
+            // Stop rendering 3D scene to save resources
+            stopThreeJS();
         }, 800);
     });
-
-    // Navigation (App -> Home) (Optional, if we want a back button)
-    if (btnBackHome) {
-        btnBackHome.addEventListener('click', () => {
-            appPage.classList.remove('active');
-            appPage.classList.add('hidden-section');
-
-            setTimeout(() => {
-                landingPage.classList.remove('slide-up');
-            }, 300);
-        });
-    }
 }
 
 // Start
