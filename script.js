@@ -260,9 +260,6 @@ const appPage = document.getElementById('app-page');
 const btnEnterApp = document.getElementById('btn-enter-app');
 
 const productSelect = document.getElementById('product-select');
-const customFileArea = document.getElementById('custom-file-area');
-const fileInput = document.getElementById('file-upload');
-const fileInfo = document.getElementById('file-info');
 const installButton = document.getElementById('install-button');
 
 // Serial Elements
@@ -299,8 +296,7 @@ let maxLogLines = 1000;
 
 let isConnecting = false;
 
-// Memory management for custom uploads
-let lastCustomFileUrl = null;
+// Memory management
 let lastManifestUrl = null;
 
 // --- UI HELPERS ---
@@ -428,15 +424,11 @@ function populateFirmwareList() {
         manifest.firmwares.forEach((fw, index) => {
             const option = document.createElement('option');
             option.value = index;
-            option.textContent = fw.name;
+            // Auto-hide .bin extension in display name
+            option.textContent = fw.name.replace(/\.bin$/i, '');
             productSelect.appendChild(option);
         });
     }
-
-    const customOption = document.createElement('option');
-    customOption.value = 'custom';
-    customOption.textContent = 'Upload Custom .bin File';
-    productSelect.appendChild(customOption);
 }
 
 function handleSelection() {
@@ -449,22 +441,14 @@ function handleSelection() {
     installButton.manifest = null;
     currentFirmware = null;
 
-    if (value === 'custom') {
-        customFileArea.style.display = 'block';
-        installButton.classList.add('hidden');
-        fileInput.value = '';
-        fileInfo.textContent = '';
-    } else {
-        customFileArea.style.display = 'none';
-        const fw = manifest.firmwares[value];
-        currentFirmware = fw;
+    const fw = manifest.firmwares[value];
+    currentFirmware = fw;
 
-        // Check if the path points directly to a .bin file
-        if (fw.manifest_path && fw.manifest_path.toLowerCase().endsWith('.bin')) {
-            setupDirectBinButton(fw.manifest_path);
-        } else {
-            setupInstallButton(fw.manifest_path);
-        }
+    // Check if the path points directly to a .bin file
+    if (fw.manifest_path && fw.manifest_path.toLowerCase().endsWith('.bin')) {
+        setupDirectBinButton(fw.manifest_path);
+    } else {
+        setupInstallButton(fw.manifest_path);
     }
 
     updateInstallButtonState();
@@ -521,60 +505,7 @@ function updateInstallButtonState() {
     }
 }
 
-function handleFileUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!file.name.endsWith('.bin')) {
-        showToast('Invalid file type (only .bin)', 'error');
-        fileInfo.textContent = 'Invalid file type';
-        return;
-    }
-
-    fileInfo.textContent = `✅ Ready: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-    fileInfo.classList.remove('hidden');
-    showToast(`Loaded ${file.name}`, 'success');
-
-    // Update Dropdown Name (remove extension and sanitize)
-    let baseName = file.name.replace(/\.[^/.]+$/, "");
-    // Basic sanitization to prevent weird characters in UI
-    baseName = baseName.replace(/[^a-zA-Z0-9 _-]/g, '').trim();
-    if (!baseName) baseName = "Custom Firmware";
-
-    const customOption = productSelect.querySelector('option[value="custom"]');
-    if (customOption) {
-        customOption.textContent = baseName;
-    }
-
-    // Clean up previous blobs
-    if (lastCustomFileUrl) URL.revokeObjectURL(lastCustomFileUrl);
-    if (lastManifestUrl) URL.revokeObjectURL(lastManifestUrl);
-
-    try {
-        lastCustomFileUrl = URL.createObjectURL(file);
-    } catch (err) {
-        log('Error creating object URL: ' + err.message, 'error');
-        return;
-    }
-
-    const generatedManifest = {
-        name: "Custom Firmware",
-        version: "1.0.0",
-        builds: [
-            { chipFamily: "ESP32", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP32-S2", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP32-S3", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP32-C3", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP32-C6", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP8266", parts: [{ path: lastCustomFileUrl, offset: 0x0 }] }
-        ]
-    };
-
-    const manifestBlob = new Blob([JSON.stringify(generatedManifest)], {type: "application/json"});
-    lastManifestUrl = URL.createObjectURL(manifestBlob);
-    installButton.manifest = lastManifestUrl;
-    updateInstallButtonState();
-}
+// handleFileUpload removed - Custom uploads disabled
 
 // --- SERIAL MONITOR LOGIC ---
 
@@ -752,7 +683,6 @@ function downloadLogs() {
 // --- EVENTS ---
 function setupEventListeners() {
     productSelect.addEventListener('change', handleSelection);
-    fileInput.addEventListener('change', handleFileUpload);
 
     btnConnect.addEventListener('click', toggleConnect);
     btnReset.addEventListener('click', resetDevice);
