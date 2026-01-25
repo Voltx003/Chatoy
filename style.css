@@ -516,13 +516,15 @@ header {
 .file-info {
     margin-top: 1rem;
     text-align: center;
-    color: var(--success);
-    font-family: var(--font-mono);
-    font-size: 0.9rem;
-    background: rgba(0, 255, 157, 0.1);
-    padding: 0.5rem;
-    border-radius: 0.5rem;
-    display: inline-block;
+    color: var(--text-main);
+    font-family: var(--font-main);
+    font-size: 0.95rem;
+    background: rgba(0, 255, 157, 0.05);
+    border: 1px solid rgba(0, 255, 157, 0.2);
+    padding: 1rem;
+    border-radius: 0.75rem;
+    display: block;
+    width: 100%;
 }
 
 /* Buttons */

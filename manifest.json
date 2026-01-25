@@ -2,8 +2,12 @@
     "name": "My ESP32 Project",
     "firmwares": [
         {
-            "name": "firmware",
-            "bin_path": "firmware/firmware.bin"
+            "name": "M5Stack Sample (Demo)",
+            "manifest_path": "firmware/m5stack-manifest.json"
+        },
+        {
+            "name": "Marauder (Example)",
+            "manifest_path": "firmware/marauder-manifest.json"
         }
     ]
 }
