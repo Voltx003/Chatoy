@@ -62,7 +62,7 @@ function createCircuitTexture() {
     ctx.strokeStyle = 'rgba(0, 242, 255, 0.1)';
     ctx.lineWidth = 1;
     const step = 64;
-    for(let i=0; i<size; i+=step) {
+    for (let i = 0; i < size; i += step) {
         ctx.beginPath();
         ctx.moveTo(i, 0); ctx.lineTo(i, size);
         ctx.stroke();
@@ -79,15 +79,15 @@ function createCircuitTexture() {
     ctx.shadowColor = '#00f2ff';
 
     const numPaths = 40;
-    for(let i=0; i<numPaths; i++) {
-        const x = Math.floor(Math.random() * (size/step)) * step;
-        const y = Math.floor(Math.random() * (size/step)) * step;
+    for (let i = 0; i < numPaths; i++) {
+        const x = Math.floor(Math.random() * (size / step)) * step;
+        const y = Math.floor(Math.random() * (size / step)) * step;
         const length = Math.random() * 200 + 50;
         const dir = Math.random() > 0.5 ? 'h' : 'v';
 
         ctx.beginPath();
         ctx.moveTo(x, y);
-        if(dir === 'h') ctx.lineTo(x + length, y);
+        if (dir === 'h') ctx.lineTo(x + length, y);
         else ctx.lineTo(x, y + length);
         ctx.stroke();
 
@@ -100,8 +100,8 @@ function createCircuitTexture() {
     ctx.fillStyle = 'rgba(0, 50, 80, 0.8)';
     ctx.strokeStyle = '#00f2ff';
     ctx.lineWidth = 4;
-    ctx.fillRect(size/2 - 100, size/2 - 100, 200, 200);
-    ctx.strokeRect(size/2 - 100, size/2 - 100, 200, 200);
+    ctx.fillRect(size / 2 - 100, size / 2 - 100, 200, 200);
+    ctx.strokeRect(size / 2 - 100, size / 2 - 100, 200, 200);
 
     const texture = new THREE.CanvasTexture(canvas);
     return texture;
@@ -144,7 +144,7 @@ function createParticles() {
     const count = 800;
     const posArray = new Float32Array(count * 3);
 
-    for(let i=0; i<count * 3; i++) {
+    for (let i = 0; i < count * 3; i++) {
         posArray[i] = (Math.random() - 0.5) * 20;
     }
 
@@ -168,7 +168,7 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 
-    if(window.innerWidth < 768) {
+    if (window.innerWidth < 768) {
         camera.position.z = 6.5;
     } else {
         camera.position.z = 5;
@@ -286,7 +286,7 @@ const log = (msg, type = 'system') => {
     div.className = `log-line ${type}`;
 
     const now = new Date();
-    const timeStr = `[${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}.${now.getMilliseconds().toString().padStart(3,'0')}]`;
+    const timeStr = `[${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}.${now.getMilliseconds().toString().padStart(3, '0')}]`;
 
     const spanTs = document.createElement('span');
     spanTs.className = 'ts';
@@ -395,7 +395,7 @@ function populateFirmwareGrid() {
             const card = document.createElement('div');
             card.className = 'project-card';
             card.dataset.index = index;
-            card.dataset.type = 'manifest';
+            card.dataset.type = fw.bin_path ? 'binary' : 'manifest';
 
             // Icon logic (random or specific if we had metadata)
             const iconClass = index % 2 === 0 ? 'ph-rocket' : 'ph-planet';
@@ -406,7 +406,7 @@ function populateFirmwareGrid() {
                 <div class="project-card-chip">Firmware</div>
             `;
 
-            card.addEventListener('click', () => selectProject(index, 'manifest'));
+            card.addEventListener('click', () => selectProject(index, fw.bin_path ? 'binary' : 'manifest'));
             projectGrid.appendChild(card);
         });
     }
@@ -448,6 +448,15 @@ function selectProject(index, type) {
         selectedProjectName.textContent = "Custom Firmware";
         selectedProjectDesc.textContent = "Upload a .bin file manually";
 
+    } else if (type === 'binary') {
+        customFileArea.style.display = 'none';
+        const fw = manifest.firmwares[index];
+        currentFirmware = fw;
+        setupInstallButtonForBinary(fw.bin_path, fw.name);
+
+        selectedProjectName.textContent = fw.name;
+        selectedProjectDesc.textContent = "Ready to flash";
+
     } else {
         customFileArea.style.display = 'none';
         const fw = manifest.firmwares[index];
@@ -468,6 +477,35 @@ function setupInstallButton(manifestPath) {
     const fullPath = new URL(manifestPath, window.location.href).href;
     installButton.manifest = fullPath;
     log(`Selected firmware: ${currentFirmware.name}`, 'system');
+}
+
+function setupInstallButtonForBinary(binPath, name) {
+    // Create a manifest on-the-fly for direct .bin files
+    const fullBinPath = new URL(binPath, window.location.href).href;
+
+    const generatedManifest = {
+        name: name,
+        version: "1.0.0",
+        new_install_prompt_erase: true,
+        builds: [
+            {
+                chipFamily: "ESP32",
+                parts: [
+                    { path: fullBinPath, offset: 0x10000 }
+                ]
+            },
+            {
+                chipFamily: "ESP8266",
+                parts: [
+                    { path: fullBinPath, offset: 0x0 }
+                ]
+            }
+        ]
+    };
+
+    const manifestBlob = new Blob([JSON.stringify(generatedManifest)], { type: "application/json" });
+    installButton.manifest = URL.createObjectURL(manifestBlob);
+    log(`Selected firmware: ${name}`, 'system');
 }
 
 function updateInstallButtonState() {
@@ -502,7 +540,7 @@ function handleFileUpload(e) {
         ]
     };
 
-    const manifestBlob = new Blob([JSON.stringify(generatedManifest)], {type: "application/json"});
+    const manifestBlob = new Blob([JSON.stringify(generatedManifest)], { type: "application/json" });
     installButton.manifest = URL.createObjectURL(manifestBlob);
     updateInstallButtonState();
 }
@@ -551,7 +589,7 @@ async function disconnectSerial() {
         try {
             if (reader) {
                 await reader.cancel();
-                await readableStreamClosed.catch(() => {});
+                await readableStreamClosed.catch(() => { });
                 reader = null;
             }
             if (writer) {
@@ -656,7 +694,7 @@ function downloadLogs() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `serial-log-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`;
+    a.download = `serial-log-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
     a.click();
     URL.revokeObjectURL(url);
 }
