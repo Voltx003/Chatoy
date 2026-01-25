@@ -212,9 +212,6 @@ const btnEnterApp = document.getElementById('btn-enter-app');
 const btnBackHome = document.getElementById('btn-back-home');
 
 // DOM Elements
-const customFileArea = document.getElementById('custom-file-area');
-const fileInput = document.getElementById('file-upload');
-const fileInfo = document.getElementById('file-info');
 const installButton = document.getElementById('install-button');
 
 // Project Selection Elements
@@ -386,45 +383,43 @@ function saveSettings() {
 
 // --- FLASHER LOGIC ---
 
+// Helper: Extract clean name from path
+// e.g., "firmwares/smart-light-v1.bin" -> "smart-light-v1"
+function getCleanName(path) {
+    const filename = path.split('/').pop();
+    return filename.replace('.bin', '');
+}
+
 // New Grid Generation Logic
 function populateFirmwareGrid() {
     projectGrid.innerHTML = '';
 
-    if (manifest && manifest.firmwares) {
-        manifest.firmwares.forEach((fw, index) => {
+    if (manifest && manifest.files) {
+        manifest.files.forEach((filePath, index) => {
+            const cleanName = getCleanName(filePath);
+
             const card = document.createElement('div');
             card.className = 'project-card';
             card.dataset.index = index;
-            card.dataset.type = 'manifest';
+            card.dataset.type = 'file';
 
             // Icon logic (random or specific if we had metadata)
             const iconClass = index % 2 === 0 ? 'ph-rocket' : 'ph-planet';
 
             card.innerHTML = `
                 <i class="ph ${iconClass} project-card-icon"></i>
-                <div class="project-card-title">${fw.name}</div>
+                <div class="project-card-title">${cleanName}</div>
                 <div class="project-card-chip">Firmware</div>
             `;
 
-            card.addEventListener('click', () => selectProject(index, 'manifest'));
+            card.addEventListener('click', () => selectProject(index, filePath));
             projectGrid.appendChild(card);
         });
     }
-
-    // Custom Upload Card
-    const customCard = document.createElement('div');
-    customCard.className = 'project-card';
-    customCard.dataset.type = 'custom';
-    customCard.innerHTML = `
-        <i class="ph ph-upload-simple project-card-icon" style="color: var(--accent-orange);"></i>
-        <div class="project-card-title">Custom Upload</div>
-        <div class="project-card-chip" style="color: var(--accent-orange); background: rgba(255,157,0,0.1);">.bin File</div>
-    `;
-    customCard.addEventListener('click', () => selectProject(null, 'custom'));
-    projectGrid.appendChild(customCard);
+    // No custom upload card anymore
 }
 
-function selectProject(index, type) {
+function selectProject(index, filePath) {
     if (port) {
         showToast('Please disconnect Serial Monitor to flash', 'error');
         return; // Don't allow changing if connected
@@ -436,27 +431,33 @@ function selectProject(index, type) {
 
     // Highlight active card
     document.querySelectorAll('.project-card').forEach(c => c.classList.remove('active'));
-    // Find the card that was clicked (based on type/index)
-    // Note: Since we are inside the click handler, we could pass 'this' but simple query works too
+    const clickedCard = projectGrid.querySelector(`[data-index="${index}"]`);
+    if (clickedCard) clickedCard.classList.add('active');
 
-    if (type === 'custom') {
-        customFileArea.style.display = 'block';
-        installButton.classList.add('hidden');
-        fileInput.value = '';
-        fileInfo.textContent = '';
+    // Create dynamic manifest for this file
+    const cleanName = getCleanName(filePath);
+    const fullPath = new URL(filePath, window.location.href).href;
 
-        selectedProjectName.textContent = "Custom Firmware";
-        selectedProjectDesc.textContent = "Upload a .bin file manually";
+    const generatedManifest = {
+        name: cleanName,
+        version: "1.0.0",
+        builds: [
+            { chipFamily: "ESP32", parts: [{ path: fullPath, offset: 0x0 }] },
+            { chipFamily: "ESP8266", parts: [{ path: fullPath, offset: 0x0 }] },
+            { chipFamily: "ESP32-S2", parts: [{ path: fullPath, offset: 0x0 }] },
+            { chipFamily: "ESP32-S3", parts: [{ path: fullPath, offset: 0x0 }] },
+            { chipFamily: "ESP32-C3", parts: [{ path: fullPath, offset: 0x0 }] },
+            { chipFamily: "ESP32-C6", parts: [{ path: fullPath, offset: 0x0 }] }
+        ]
+    };
 
-    } else {
-        customFileArea.style.display = 'none';
-        const fw = manifest.firmwares[index];
-        currentFirmware = fw;
-        setupInstallButton(fw.manifest_path);
+    const manifestBlob = new Blob([JSON.stringify(generatedManifest)], {type: "application/json"});
+    const manifestUrl = URL.createObjectURL(manifestBlob);
 
-        selectedProjectName.textContent = fw.name;
-        selectedProjectDesc.textContent = "Ready to flash";
-    }
+    setupInstallButton(manifestUrl, cleanName);
+
+    selectedProjectName.textContent = cleanName;
+    selectedProjectDesc.textContent = "Ready to flash";
 
     // Close Modal
     modalPicker.classList.add('hidden');
@@ -464,10 +465,10 @@ function selectProject(index, type) {
 }
 
 
-function setupInstallButton(manifestPath) {
-    const fullPath = new URL(manifestPath, window.location.href).href;
-    installButton.manifest = fullPath;
-    log(`Selected firmware: ${currentFirmware.name}`, 'system');
+function setupInstallButton(manifestUrl, name) {
+    installButton.manifest = manifestUrl;
+    currentFirmware = { name: name }; // Dummy object for state check
+    log(`Selected firmware: ${name}`, 'system');
 }
 
 function updateInstallButtonState() {
@@ -476,44 +477,6 @@ function updateInstallButtonState() {
     } else {
         installButton.classList.add('hidden');
     }
-}
-
-function handleFileUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!file.name.endsWith('.bin')) {
-        showToast('Invalid file type (only .bin)', 'error');
-        fileInfo.textContent = 'Invalid file type';
-        return;
-    }
-
-    fileInfo.classList.remove('hidden');
-    fileInfo.innerHTML = `
-        <div style="text-align: center; margin-bottom: 10px;">
-            <p><i class="ph ph-check-circle" style="color: #4CAF50; font-size: 1.5rem; vertical-align: middle;"></i> Loaded: <strong>${file.name}</strong> (${(file.size / 1024).toFixed(1)} KB)</p>
-            <p style="font-size: 0.9rem; opacity: 0.8; margin-top: 5px;">👇 Click <strong>INSTALL</strong> below to flash.</p>
-        </div>
-    `;
-    showToast(`Loaded ${file.name}`, 'success');
-
-    const fileUrl = URL.createObjectURL(file);
-    const generatedManifest = {
-        name: "Custom Firmware",
-        version: "1.0.0",
-        builds: [
-            { chipFamily: "ESP32", parts: [{ path: fileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP8266", parts: [{ path: fileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP32-S2", parts: [{ path: fileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP32-S3", parts: [{ path: fileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP32-C3", parts: [{ path: fileUrl, offset: 0x0 }] },
-            { chipFamily: "ESP32-C6", parts: [{ path: fileUrl, offset: 0x0 }] }
-        ]
-    };
-
-    const manifestBlob = new Blob([JSON.stringify(generatedManifest)], {type: "application/json"});
-    installButton.manifest = URL.createObjectURL(manifestBlob);
-    updateInstallButtonState();
 }
 
 // --- SERIAL MONITOR LOGIC ---
@@ -674,7 +637,7 @@ function downloadLogs() {
 function setupEventListeners() {
     // Replaced productSelect.addEventListener with modal logic
 
-    fileInput.addEventListener('change', handleFileUpload);
+    // fileInput.addEventListener('change', handleFileUpload); // Removed
 
     btnConnect.addEventListener('click', toggleConnect);
     btnReset.addEventListener('click', resetDevice);

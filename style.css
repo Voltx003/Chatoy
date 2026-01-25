@@ -72,9 +72,9 @@ body {
 
 .landing-content {
     text-align: center;
-    max-width: 800px;
-    padding: 4rem;
-    border-radius: 2rem;
+    max-width: 700px;
+    padding: 3rem;
+    border-radius: 1.5rem;
     background: rgba(15, 20, 35, 0.4);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.05);
@@ -82,7 +82,7 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1.25rem;
 }
 
 .hero-icon {
@@ -189,13 +189,14 @@ body {
 
 .container {
     width: 100%;
-    max-width: 1000px;
+    max-width: 800px;
     display: grid;
     grid-template-columns: 1fr;
-    gap: 2rem;
-    padding: 2rem;
+    gap: 1.5rem;
+    padding: 1.5rem;
     margin: 0 auto;
     padding-top: 2rem;
+    transform-origin: top center;
 }
 
 /* Header */
@@ -244,8 +245,8 @@ header {
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--card-border);
-    border-radius: 1.5rem;
-    padding: 2rem;
+    border-radius: 1.25rem;
+    padding: 1.5rem;
     box-shadow: var(--glass-shadow);
     transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
@@ -785,7 +786,22 @@ header {
     to { transform: translateX(100%); opacity: 0; }
 }
 
-esp-web-install-button { width: 100%; display: block; border-radius: 0.75rem; overflow: hidden; }
+esp-web-install-button {
+    width: 100%;
+    display: block;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    --esp-tools-button-color: #0b0f19;
+    --esp-tools-button-text-color: #00f2ff;
+    --esp-tools-button-border-radius: 0.75rem;
+    box-shadow: 0 4px 15px rgba(0, 242, 255, 0.2);
+    transition: all 0.2s;
+}
+
+esp-web-install-button:hover {
+    box-shadow: 0 6px 20px rgba(0, 242, 255, 0.4);
+    transform: translateY(-2px);
+}
 .hidden { display: none !important; }
 
 /* Footer */
