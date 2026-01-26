@@ -1,8 +1,7 @@
 {
     "name": "Chatoy Studio Repository",
     "files": [
-        "firmwares/smart-light-v1.bin",
-        "firmwares/weather-station.bin",
-        "firmwares/led-controller.bin"
+        "firmwares/Chatoy-Server.bin",
+    
     ]
 }
