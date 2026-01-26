@@ -1,7 +1,7 @@
 {
     "name": "Chatoy Studio Repository",
     "files": [
-        "firmwares/chatoy-server.bin",
+        "firmwares/chatoy-server.bin"
     
     ]
 }
