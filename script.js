@@ -229,6 +229,7 @@ const projectGrid = document.getElementById('project-grid');
 const selectedProjectName = document.getElementById('selected-project-name');
 const selectedProjectDesc = document.getElementById('selected-project-desc');
 const projectDisplayArea = document.getElementById('project-display-area');
+const customFileInput = document.getElementById('custom-file-input');
 
 // Serial Elements
 const btnConnect = document.getElementById('btn-serial-connect');
@@ -401,6 +402,17 @@ function getCleanName(path) {
 function populateFirmwareGrid() {
     projectGrid.innerHTML = '';
 
+    // Add "Custom File" Card FIRST
+    const customCard = document.createElement('div');
+    customCard.className = 'project-card';
+    customCard.innerHTML = `
+        <i class="ph ph-upload-simple project-card-icon" style="color: var(--accent-orange);"></i>
+        <div class="project-card-title">Custom .bin File</div>
+        <div class="project-card-chip" style="background: rgba(255, 157, 0, 0.1); color: var(--accent-orange);">Upload</div>
+    `;
+    customCard.addEventListener('click', () => customFileInput.click());
+    projectGrid.appendChild(customCard);
+
     if (manifest && manifest.files) {
         manifest.files.forEach((filePath, index) => {
             const cleanName = getCleanName(filePath);
@@ -423,7 +435,49 @@ function populateFirmwareGrid() {
             projectGrid.appendChild(card);
         });
     }
-    // No custom upload card anymore
+}
+
+function handleCustomFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Reset UI
+    installButton.manifest = null;
+    currentFirmware = null;
+
+    // Deselect other cards
+    document.querySelectorAll('.project-card').forEach(c => c.classList.remove('active'));
+
+    // Generate Manifest
+    const cleanName = file.name;
+    const fileUrl = URL.createObjectURL(file);
+
+    const generatedManifest = {
+        name: cleanName,
+        version: "Custom",
+        builds: [
+            { chipFamily: "ESP32", parts: [{ path: fileUrl, offset: 0x0 }] },
+            { chipFamily: "ESP8266", parts: [{ path: fileUrl, offset: 0x0 }] },
+            { chipFamily: "ESP32-S2", parts: [{ path: fileUrl, offset: 0x0 }] },
+            { chipFamily: "ESP32-S3", parts: [{ path: fileUrl, offset: 0x0 }] },
+            { chipFamily: "ESP32-C3", parts: [{ path: fileUrl, offset: 0x0 }] },
+            { chipFamily: "ESP32-C6", parts: [{ path: fileUrl, offset: 0x0 }] }
+        ]
+    };
+
+    const manifestBlob = new Blob([JSON.stringify(generatedManifest)], {type: "application/json"});
+    const manifestUrl = URL.createObjectURL(manifestBlob);
+
+    setupInstallButton(manifestUrl, cleanName + " (Custom)");
+
+    selectedProjectName.textContent = cleanName;
+    selectedProjectDesc.textContent = "Custom file ready to flash";
+
+    modalPicker.classList.add('hidden');
+    updateInstallButtonState();
+
+    // Reset input so same file can be selected again if needed
+    customFileInput.value = '';
 }
 
 function selectProject(index, filePath) {
@@ -644,7 +698,7 @@ function downloadLogs() {
 function setupEventListeners() {
     // Replaced productSelect.addEventListener with modal logic
 
-    // fileInput.addEventListener('change', handleFileUpload); // Removed
+    customFileInput.addEventListener('change', handleCustomFile);
 
     btnConnect.addEventListener('click', toggleConnect);
     btnReset.addEventListener('click', resetDevice);
