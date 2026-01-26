@@ -72,11 +72,12 @@ body {
 
 .landing-content {
     text-align: center;
-    max-width: 700px;
-    padding: 3rem;
-    border-radius: 1.5rem;
+    max-width: 500px; /* Scaled down */
+    padding: 2rem;
+    border-radius: 1.25rem;
     background: rgba(15, 20, 35, 0.4);
     backdrop-filter: blur(10px);
+    transform: scale(0.9); /* Slight scale down visually */
     border: 1px solid rgba(255, 255, 255, 0.05);
     box-shadow: 0 20px 50px rgba(0,0,0,0.5);
     display: flex;
@@ -189,14 +190,15 @@ body {
 
 .container {
     width: 100%;
-    max-width: 800px;
+    max-width: 600px; /* Scaled down */
     display: grid;
     grid-template-columns: 1fr;
-    gap: 1.5rem;
-    padding: 1.5rem;
+    gap: 1.25rem;
+    padding: 1.25rem;
     margin: 0 auto;
     padding-top: 2rem;
     transform-origin: top center;
+    transform: scale(0.9); /* Further visual scaling */
 }
 
 /* Header */
@@ -791,9 +793,25 @@ esp-web-install-button {
     display: block;
     border-radius: 0.75rem;
     overflow: hidden;
+
+    /* Button Styling */
     --esp-tools-button-color: #0b0f19;
     --esp-tools-button-text-color: #00f2ff;
     --esp-tools-button-border-radius: 0.75rem;
+
+    /* Dialog Styling (MDC Web Components inside Shadow DOM) */
+    --mdc-theme-primary: #00f2ff;
+    --mdc-theme-on-primary: #000000;
+    --mdc-theme-surface: #0b0f19; /* Dialog background */
+    --mdc-dialog-content-ink-color: #e2e8f0; /* Text color */
+    --mdc-dialog-heading-ink-color: #00f2ff; /* Title color */
+    --mdc-dialog-scrim-color: rgba(0, 0, 0, 0.8); /* Backdrop */
+    --mdc-shape-medium: 12px; /* Dialog radius */
+
+    /* Logs styling inside dialog */
+    --mdc-typography-body1-color: #a0a0a0;
+    --mdc-typography-body2-color: #888888;
+
     box-shadow: 0 4px 15px rgba(0, 242, 255, 0.2);
     transition: all 0.2s;
 }

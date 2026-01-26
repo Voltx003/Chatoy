@@ -11,6 +11,11 @@ const canvasContainer = document.getElementById('canvas-container');
 function initThreeJS() {
     if (!canvasContainer) return;
 
+    // Prevent double initialization
+    if (canvasContainer.children.length > 0) {
+        return;
+    }
+
     // 1. Scene & Camera
     scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x0b0f19, 0.002);
@@ -136,6 +141,8 @@ function createTechCube() {
         opacity: 0.15
     });
     cage = new THREE.Mesh(cageGeo, cageMat);
+    // Align cage rotation with cube initially
+    cage.rotation.copy(cube.rotation);
     scene.add(cage);
 }
 
@@ -186,10 +193,10 @@ function animate() {
         cube.rotation.y += 0.002;
     }
 
-    // Rotate Cage (Inverse)
+    // Rotate Cage (Slower, same direction for less chaotic look)
     if (cage) {
-        cage.rotation.x -= 0.001;
-        cage.rotation.y -= 0.001;
+        cage.rotation.x += 0.001; // Synced direction
+        cage.rotation.y += 0.0015;
     }
 
     // Float Particles
